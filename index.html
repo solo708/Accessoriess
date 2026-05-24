@@ -42,8 +42,14 @@ body {
   overflow-x: hidden;
   cursor: none;
 }
+@media (hover: none) and (pointer: coarse) {
+  body { cursor: auto; }
+  button { cursor: pointer; }
+  #cursor-dot, #cursor-ring { display: none; }
+}
 a { text-decoration: none; color: inherit; }
-button { cursor: none; border: none; background: none; font-family: inherit; }
+button { border: none; background: none; font-family: inherit; cursor: none; }
+@media (hover: none) and (pointer: coarse) { button { cursor: pointer; } }
 input, select { font-family: inherit; }
 img { display: block; }
 ul { list-style: none; }
@@ -161,7 +167,7 @@ body::before {
   font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.15em;
   text-align: center; padding: 0.5rem;
-  position: relative; z-index: 100;
+  position: sticky; top: 0; z-index: 501;
   overflow: hidden;
 }
 .announce-bar .marquee-track {
@@ -178,7 +184,7 @@ body::before {
    HEADER / NAV
 ═══════════════════════════════════════════════════ */
 header {
-  position: sticky; top: 0; z-index: 500;
+  position: sticky; top: 36px; z-index: 500;
   background: rgba(10,9,8,0.95);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
@@ -776,15 +782,15 @@ header {
 }
 .cart-backdrop.open { opacity: 1; visibility: visible; }
 .cart-drawer {
-  position: fixed; top: 0; left: -100%; width: 420px; height: 100%;
+  position: fixed; top: 0; right: -100%; width: 420px; height: 100%;
   background: var(--bg-2);
-  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   z-index: 701;
   display: flex; flex-direction: column;
-  transition: left 0.4s cubic-bezier(0.4,0,0.2,1);
-  box-shadow: 4px 0 40px rgba(0,0,0,0.5);
+  transition: right 0.4s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: -4px 0 40px rgba(0,0,0,0.5);
 }
-.cart-drawer.open { left: 0; }
+.cart-drawer.open { right: 0; }
 .cart-head {
   padding: 1.5rem 1.5rem 1.2rem;
   border-bottom: 1px solid var(--border);
@@ -1899,22 +1905,26 @@ footer {
       </div>
       <div class="ch-field">
         <label>رقم الهاتف *</label>
-        <input class="ch-input" id="ch-phone" type="tel" placeholder="05XXXXXXXX">
+        <input class="ch-input" id="ch-phone" type="tel" placeholder="01XXXXXXXXX" maxlength="15">
       </div>
       <div class="ch-field">
-        <label>البريد الإلكتروني</label>
+        <label>البريد الإلكتروني <span style="font-size:0.68rem;color:var(--text-dim)">(اختياري)</span></label>
         <input class="ch-input" id="ch-email" type="email" placeholder="example@email.com">
       </div>
       <div class="ch-field">
+        <label>المحافظة / المنطقة *</label>
+        <input class="ch-input" id="ch-district" type="text" placeholder="مثال: مدينة نصر، الدقي، الزيتون...">
+      </div>
+      <div class="ch-field">
         <label>المدينة *</label>
-        <input class="ch-input" id="ch-city" type="text" placeholder="الرياض">
+        <input class="ch-input" id="ch-city" type="text" placeholder="القاهرة، الإسكندرية، الجيزة...">
       </div>
       <div class="ch-field">
         <label>العنوان التفصيلي *</label>
         <input class="ch-input" id="ch-address" type="text" placeholder="الحي، الشارع، رقم المبنى...">
       </div>
       <div class="ch-field">
-        <label>ملاحظات إضافية (اختياري)</label>
+        <label>ملاحظات إضافية <span style="font-size:0.68rem;color:var(--text-dim)">(اختياري)</span></label>
         <input class="ch-input" id="ch-notes" type="text" placeholder="أي تعليمات خاصة للتوصيل...">
       </div>
 
@@ -1966,11 +1976,11 @@ footer {
     </div>
     <div class="cart-subtotal">
       <span>المجموع الفرعي</span>
-      <span id="cart-sub">0 ر.س</span>
+      <span id="cart-sub">0 ج.م</span>
     </div>
     <div class="cart-subtotal" id="discount-row" style="display:none; color: var(--green)">
       <span>الخصم (10%)</span>
-      <span id="cart-discount">0 ر.س</span>
+      <span id="cart-discount">0 ج.م</span>
     </div>
     <div class="cart-subtotal">
       <span>الشحن</span>
@@ -1978,7 +1988,7 @@ footer {
     </div>
     <div class="cart-subtotal total">
       <span>الإجمالي</span>
-      <span id="cart-total">0 ر.س</span>
+      <span id="cart-total">0 ج.م</span>
     </div>
     <button class="checkout-btn" onclick="checkout()">إتمام الشراء →</button>
   </div>
@@ -2018,7 +2028,7 @@ footer {
         <div class="stars" id="modal-stars">★★★★★</div>
         <div class="rating-num" id="modal-rating-num">(0 تقييم)</div>
       </div>
-      <div class="modal-price" id="modal-price">0 ر.س</div>
+      <div class="modal-price" id="modal-price">0 ج.م</div>
       <p class="modal-desc" id="modal-desc">وصف المنتج</p>
       <div class="modal-options">
         <div class="options-label">اللون</div>
@@ -2042,8 +2052,8 @@ footer {
 ══════════════════════════════════════════════════ -->
 <div class="announce-bar">
   <div class="marquee-track">
-    🎁 شحن مجاني على الطلبات فوق 200 ر.س &nbsp;|&nbsp; ✨ مجموعة الربيع الجديدة متاحة الآن &nbsp;|&nbsp; 💳 قبول جميع طرق الدفع &nbsp;|&nbsp; 🔒 تسوق آمن 100% &nbsp;|&nbsp; 🎁 هدايا مجانية مع كل طلب فوق 500 ر.س &nbsp;&nbsp;&nbsp;&nbsp;
-    🎁 شحن مجاني على الطلبات فوق 200 ر.س &nbsp;|&nbsp; ✨ مجموعة الربيع الجديدة متاحة الآن &nbsp;|&nbsp; 💳 قبول جميع طرق الدفع &nbsp;|&nbsp; 🔒 تسوق آمن 100% &nbsp;|&nbsp; 🎁 هدايا مجانية مع كل طلب فوق 500 ر.س &nbsp;&nbsp;&nbsp;&nbsp;
+    🎁 شحن مجاني على الطلبات فوق 1500 ج.م &nbsp;|&nbsp; ✨ مجموعة الربيع الجديدة متاحة الآن &nbsp;|&nbsp; 💳 قبول جميع طرق الدفع &nbsp;|&nbsp; 🔒 تسوق آمن 100% &nbsp;|&nbsp; 🎁 هدايا مجانية مع كل طلب فوق 5000 ج.م &nbsp;&nbsp;&nbsp;&nbsp;
+    🎁 شحن مجاني على الطلبات فوق 1500 ج.م &nbsp;|&nbsp; ✨ مجموعة الربيع الجديدة متاحة الآن &nbsp;|&nbsp; 💳 قبول جميع طرق الدفع &nbsp;|&nbsp; 🔒 تسوق آمن 100% &nbsp;|&nbsp; 🎁 هدايا مجانية مع كل طلب فوق 5000 ج.م &nbsp;&nbsp;&nbsp;&nbsp;
   </div>
 </div>
 
@@ -2057,11 +2067,11 @@ footer {
       <span>ACCESSORIES</span>
     </div>
     <nav class="nav-links">
-      <a href="#" onclick="scrollToShop()">المتجر</a>
-      <a href="#">المجموعات</a>
-      <a href="#">العروض</a>
-      <a href="#">عن LUXE</a>
-      <a href="#">تواصل معنا</a>
+      <a href="#shop" onclick="event.preventDefault();scrollToShop()">المتجر</a>
+      <a href="#categories-strip" onclick="event.preventDefault();document.getElementById('categories-strip').scrollIntoView({behavior:'smooth'})">المجموعات</a>
+      <a href="#promo" onclick="event.preventDefault();document.querySelector('.promo-banner').scrollIntoView({behavior:'smooth'})">العروض</a>
+      <a href="#footer" onclick="event.preventDefault();document.querySelector('footer').scrollIntoView({behavior:'smooth'})">عن LUXE</a>
+      <a href="#footer" onclick="event.preventDefault();document.querySelector('footer').scrollIntoView({behavior:'smooth'})">تواصل معنا</a>
     </nav>
     <div class="nav-actions">
       <button class="nav-btn" id="open-search" title="بحث">🔍</button>
@@ -2098,11 +2108,11 @@ footer {
     </div>
     <div class="hero-stats">
       <div>
-        <div class="stat-num">+2K</div>
+        <div class="stat-num">18+</div>
         <div class="stat-label">منتج فاخر</div>
       </div>
       <div>
-        <div class="stat-num">50+</div>
+        <div class="stat-num">5+</div>
         <div class="stat-label">ماركة عالمية</div>
       </div>
       <div>
@@ -2249,13 +2259,13 @@ footer {
 
       <!-- Price -->
       <div class="filter-group">
-        <div class="filter-label">نطاق السعر (ر.س)</div>
+        <div class="filter-label">نطاق السعر (ج.م)</div>
         <div class="price-inputs">
           <input class="price-input" type="number" id="price-min" placeholder="0" min="0" oninput="applyFilters()">
           <span class="price-sep">—</span>
-          <input class="price-input" type="number" id="price-max" placeholder="5000" min="0" oninput="applyFilters()">
+          <input class="price-input" type="number" id="price-max" placeholder="40000" min="0" oninput="applyFilters()">
         </div>
-        <input type="range" class="range-slider" id="price-range" min="0" max="5000" value="5000" oninput="updateRange(this)">
+        <input type="range" class="range-slider" id="price-range" min="0" max="40000" value="40000" oninput="updateRange(this)">
       </div>
 
       <!-- Colors -->
@@ -2346,7 +2356,7 @@ footer {
     <div class="products-area">
       <div class="products-toolbar">
         <div class="products-meta">
-          عرض <strong id="shown-count">0</strong> من <strong id="total-count">0</strong> منتج
+          يُعرض حتى <strong id="shown-count">0</strong> من أصل <strong id="total-count">0</strong> منتج
         </div>
         <div class="toolbar-right">
           <select class="sort-select" id="sort-select" onchange="applyFilters()">
@@ -2632,7 +2642,7 @@ footer {
       <div class="feature-icon">🚚</div>
       <div class="feature-text">
         <h4>شحن مجاني</h4>
-        <p>على جميع الطلبات فوق 200 ر.س إلى أي مكان في المملكة</p>
+        <p>على جميع الطلبات فوق 1500 ج.م إلى أي مكان في مصر</p>
       </div>
     </div>
     <div class="feature-item">
@@ -2666,12 +2676,12 @@ footer {
   <div class="footer-inner">
     <div class="footer-brand">
       <div class="nav-logo">LUXE<span>ACCESSORIES</span></div>
-      <p>وجهتك الأولى للاكسسوارات الفاخرة المختارة بعناية من أفضل الماركات العالمية. نؤمن بأن التفاصيل الصغيرة تصنع الفرق الكبير.</p>
+      <p>وجهتك الأولى في مصر للاكسسوارات الفاخرة المختارة بعناية من أفضل الماركات العالمية. بنوصّل لكل محافظات مصر بأمان وسرعة.</p>
       <div class="social-links">
-        <a class="social-link" href="#" title="انستجرام">📸</a>
-        <a class="social-link" href="#" title="تويتر">🐦</a>
-        <a class="social-link" href="#" title="سناب">👻</a>
-        <a class="social-link" href="#" title="تيك توك">🎵</a>
+        <a class="social-link" href="https://instagram.com" target="_blank" rel="noopener" title="انستجرام">📸</a>
+        <a class="social-link" href="https://twitter.com" target="_blank" rel="noopener" title="تويتر">🐦</a>
+        <a class="social-link" href="https://snapchat.com" target="_blank" rel="noopener" title="سناب">👻</a>
+        <a class="social-link" href="https://tiktok.com" target="_blank" rel="noopener" title="تيك توك">🎵</a>
       </div>
     </div>
     <div class="footer-col">
@@ -2706,12 +2716,12 @@ footer {
     </div>
   </div>
   <div class="footer-bottom">
-    <p>© 2025 <span>LUXE Accessories</span>. جميع الحقوق محفوظة.</p>
+    <p>© 2025 <span>LUXE Accessories</span>. جميع الحقوق محفوظة — القاهرة، مصر.</p>
     <div class="payment-icons">
       <span class="pay-icon">VISA</span>
       <span class="pay-icon">MC</span>
-      <span class="pay-icon">MADA</span>
-      <span class="pay-icon">STC</span>
+      <span class="pay-icon">فوري</span>
+      <span class="pay-icon">انستاباي</span>
       <span class="pay-icon">APPLE PAY</span>
     </div>
   </div>
@@ -2727,24 +2737,24 @@ footer {
    DATA — PRODUCTS
 ══════════════════════════════════════════════════ */
 const PRODUCTS = [
-  { id:1,  name:'حقيبة الأناقة الكلاسيكية', cat:'حقائب', brand:'Luxe Gold',   emoji:'👜', price:1299, oldPrice:1799, rating:4.9, reviews:128, colors:['أسود','بني','بيج'],  sizes:['S','M','L'],      badge:'new',   inStock:true,  desc:'حقيبة جلدية فاخرة مصنوعة من أجود أنواع الجلد الإيطالي، تتميز بتصميمها الأنيق الذي يناسب كافة المناسبات الرسمية والعصرية.' },
-  { id:2,  name:'ساعة رويال كلاسيك', cat:'ساعات', brand:'Royal Touch',  emoji:'⌚', price:2850, oldPrice:3500, rating:4.8, reviews:96,  colors:['ذهبي','فضي','أسود'], sizes:null,               badge:'sale',  inStock:true,  desc:'ساعة فاخرة بآلية سويسرية دقيقة، إطار من الستانلس ستيل مطلي بالذهب، مقاومة للماء حتى 50 متر.' },
-  { id:3,  name:'طوق لؤلؤ ملكي', cat:'مجوهرات', brand:'Orient Gems',   emoji:'📿', price:650,  oldPrice:null, rating:4.7, reviews:74,  colors:['أبيض','كريمي'],     sizes:null,               badge:'hot',   inStock:true,  desc:'طوق من اللؤلؤ الطبيعي المختار بعناية، إبزيم ذهبي 18 قيراط، طول قابل للتعديل يناسب كل الأذواق.' },
-  { id:4,  name:'نظارة شمسية بريمييم', cat:'نظارات', brand:'Élite Paris',   emoji:'🕶️', price:890,  oldPrice:1100, rating:4.6, reviews:52,  colors:['أسود','ذهبي','بني'], sizes:null,             badge:'sale',  inStock:true,  desc:'نظارة شمسية من الأسيتات عالي الجودة، عدسات مضادة للأشعة فوق البنفسجية بنسبة 100%، إطار خفيف الوزن.' },
-  { id:5,  name:'حزام جلدي إيطالي', cat:'أحزمة', brand:'Milano',        emoji:'👔', price:420,  oldPrice:null, rating:4.5, reviews:88,  colors:['أسود','بني','عسلي'], sizes:['S','M','L','XL'], badge:'new',   inStock:true,  desc:'حزام من الجلد الإيطالي الأصلي، إبزيم معدني مطلي بالذهب، حرفية صناعة عالية تدوم سنوات.' },
-  { id:6,  name:'وشاح كشمير الفاخر', cat:'أوشحة', brand:'Royal Touch',  emoji:'🧣', price:380,  oldPrice:520,  rating:4.8, reviews:43,  colors:['أحمر','أزرق','رمادي','بيج'], sizes:null,         badge:'sale',  inStock:true,  desc:'وشاح من أجود أنواع الكشمير الطبيعي، ناعم ودافئ، مثالي للهدايا الفاخرة في الشتاء.' },
-  { id:7,  name:'محفظة جلدية أنيقة', cat:'محافظ', brand:'Luxe Gold',   emoji:'👛', price:320,  oldPrice:null, rating:4.6, reviews:115, colors:['أسود','بني','كحلي'], sizes:null,              badge:null,    inStock:true,  desc:'محفظة نسائية من الجلد الأصلي، تتسع لبطاقات متعددة وأوراق النقود، مثالية للاستخدام اليومي.' },
-  { id:8,  name:'خاتم الماس الفاخر', cat:'خواتم', brand:'Orient Gems',  emoji:'💍', price:3200, oldPrice:4500, rating:5.0, reviews:34,  colors:['ذهبي','فضي','روزغولد'], sizes:['6','7','8','9'],badge:'hot',   inStock:true,  desc:'خاتم من الذهب 18 قيراط مرصع بالماس الطبيعي المعتمد، يأتي بعلبة هدية فاخرة مع شهادة الأصالة.' },
-  { id:9,  name:'حقيبة كروس بودي', cat:'حقائب', brand:'Élite Paris',   emoji:'👝', price:780,  oldPrice:950,  rating:4.4, reviews:67,  colors:['أسود','أبيض','ذهبي'], sizes:['S','M'],         badge:'sale',  inStock:true,  desc:'حقيبة كروس بودي عصرية من الجلد الفيغان عالي الجودة، تصميم باريسي أنيق يناسب الإطلالة النهارية والمسائية.' },
-  { id:10, name:'ساعة سمارت فاخرة', cat:'ساعات', brand:'Royal Touch',  emoji:'⌚', price:1950, oldPrice:null, rating:4.7, reviews:82,  colors:['أسود','فضي','ذهبي'], sizes:null,               badge:'new',   inStock:true,  desc:'ساعة ذكية بتصميم كلاسيكي فاخر، شاشة AMOLED، مقاومة للماء، تتبع الصحة والنشاط البدني.' },
-  { id:11, name:'سوار ذهبي مجدول', cat:'مجوهرات', brand:'Orient Gems', emoji:'✨', price:480,  oldPrice:620,  rating:4.5, reviews:59,  colors:['ذهبي','فضي','روزغولد'], sizes:['16','17','18'], badge:'sale', inStock:true,  desc:'سوار ذهبي مجدول بيد الصانع الماهر، ذهب 18 قيراط، يتوفر بأحجام متعددة مع إمكانية التخصيص.' },
-  { id:12, name:'نظارة إطار كلاسيك', cat:'نظارات', brand:'Milano',      emoji:'👓', price:560,  oldPrice:null, rating:4.3, reviews:38,  colors:['أسود','ذهبي','رمادي'], sizes:null,             badge:null,    inStock:false, desc:'نظارة بإطار كلاسيكي من الأسيتات الإيطالية، تصميم خالد لا يخضع لصرعات الموضة العابرة.' },
-  { id:13, name:'حقيبة سفر فاخرة', cat:'حقائب', brand:'Luxe Gold',    emoji:'🧳', price:2200, oldPrice:2800, rating:4.8, reviews:91,  colors:['أسود','نيفي','رمادي'], sizes:['S','M','L'],    badge:'hot',   inStock:true,  desc:'حقيبة سفر من ألياف كربون خفيفة الوزن، أقفال TSA معتمدة، عجلات 360°، ضمان 5 سنوات.' },
-  { id:14, name:'دبوس ربطة عنق ذهبي', cat:'مجوهرات', brand:'Royal Touch', emoji:'📌', price:195, oldPrice:null, rating:4.4, reviews:27, colors:['ذهبي','فضي'],          sizes:null,              badge:'new',   inStock:true,  desc:'دبوس ربطة عنق من الذهب المطلي عيار 18، تصميم عصري يضيف لمسة رجولية راقية للإطلالة الرسمية.' },
-  { id:15, name:'محفظة جيب رجالية', cat:'محافظ', brand:'Milano',       emoji:'💼', price:260,  oldPrice:340,  rating:4.6, reviews:103, colors:['أسود','بني'],          sizes:null,              badge:'sale',  inStock:true,  desc:'محفظة رجالية من الجلد الأصلي الإيطالي، تصميم نحيل أنيق، حماية RFID للبطاقات البنكية.' },
-  { id:16, name:'خاتم الزمرد الملكي', cat:'خواتم', brand:'Orient Gems', emoji:'💚', price:1850, oldPrice:2400, rating:4.9, reviews:21,  colors:['ذهبي'],               sizes:['6','7','8'],      badge:'hot',   inStock:true,  desc:'خاتم ذهب 18 قيراط مرصع بالزمرد الطبيعي كولومبي، معتمد بشهادة GIA، يأتي بحافظة مخملية.' },
-  { id:17, name:'وشاح حرير إيطالي', cat:'أوشحة', brand:'Élite Paris',  emoji:'🎀', price:290,  oldPrice:380,  rating:4.7, reviews:55,  colors:['أحمر','أزرق','أخضر','بنفسجي'], sizes:null,       badge:'sale',  inStock:true,  desc:'وشاح من الحرير الطبيعي 100%، مطبوع بألوان زاهية، خفيف وناعم، يُستخدم كوشاح أو إكسسوار للشعر.' },
-  { id:18, name:'سوار جلدي كلاسيك', cat:'مجوهرات', brand:'Milano',     emoji:'🪬', price:145,  oldPrice:null, rating:4.2, reviews:78,  colors:['أسود','بني','عسلي'],  sizes:['S','M','L'],     badge:null,    inStock:true,  desc:'سوار جلدي رجالي بإبزيم معدني فضي، جلد طبيعي دائم، تصميم عصري متعدد الاستخدامات.' },
+  { id:1,  name:'حقيبة الأناقة الكلاسيكية', cat:'حقائب', brand:'Luxe Gold',   emoji:'👜', price:11000, oldPrice:15000, rating:4.9, reviews:128, colors:['أسود','بني','بيج'],  sizes:['S','M','L'],      badge:'new',   inStock:true,  desc:'حقيبة جلدية فاخرة مصنوعة من أجود أنواع الجلد الإيطالي، تتميز بتصميمها الأنيق الذي يناسب كافة المناسبات الرسمية والعصرية.' },
+  { id:2,  name:'ساعة رويال كلاسيك', cat:'ساعات', brand:'Royal Touch',  emoji:'⌚', price:24000, oldPrice:30000, rating:4.8, reviews:96,  colors:['ذهبي','فضي','أسود'], sizes:null,               badge:'sale',  inStock:true,  desc:'ساعة فاخرة بآلية سويسرية دقيقة، إطار من الستانلس ستيل مطلي بالذهب، مقاومة للماء حتى 50 متر.' },
+  { id:3,  name:'طوق لؤلؤ ملكي', cat:'مجوهرات', brand:'Orient Gems',   emoji:'📿', price:5500,  oldPrice:null,  rating:4.7, reviews:74,  colors:['أبيض','كريمي'],     sizes:null,               badge:'hot',   inStock:true,  desc:'طوق من اللؤلؤ الطبيعي المختار بعناية، إبزيم ذهبي 18 قيراط، طول قابل للتعديل يناسب كل الأذواق.' },
+  { id:4,  name:'نظارة شمسية بريمييم', cat:'نظارات', brand:'Élite Paris',   emoji:'🕶️', price:7500,  oldPrice:9500,  rating:4.6, reviews:52,  colors:['أسود','ذهبي','بني'], sizes:null,             badge:'sale',  inStock:true,  desc:'نظارة شمسية من الأسيتات عالي الجودة، عدسات مضادة للأشعة فوق البنفسجية بنسبة 100%، إطار خفيف الوزن.' },
+  { id:5,  name:'حزام جلدي إيطالي', cat:'أحزمة', brand:'Milano',        emoji:'👔', price:3500,  oldPrice:null,  rating:4.5, reviews:88,  colors:['أسود','بني','عسلي'], sizes:['S','M','L','XL'], badge:'new',   inStock:true,  desc:'حزام من الجلد الإيطالي الأصلي، إبزيم معدني مطلي بالذهب، حرفية صناعة عالية تدوم سنوات.' },
+  { id:6,  name:'وشاح كشمير الفاخر', cat:'أوشحة', brand:'Royal Touch',  emoji:'🧣', price:3200,  oldPrice:4400,  rating:4.8, reviews:43,  colors:['أحمر','أزرق','رمادي','بيج'], sizes:null,         badge:'sale',  inStock:true,  desc:'وشاح من أجود أنواع الكشمير الطبيعي، ناعم ودافئ، مثالي للهدايا الفاخرة في الشتاء.' },
+  { id:7,  name:'محفظة جلدية أنيقة', cat:'محافظ', brand:'Luxe Gold',   emoji:'👛', price:2700,  oldPrice:null,  rating:4.6, reviews:115, colors:['أسود','بني','كحلي'], sizes:null,              badge:null,    inStock:true,  desc:'محفظة نسائية من الجلد الأصلي، تتسع لبطاقات متعددة وأوراق النقود، مثالية للاستخدام اليومي.' },
+  { id:8,  name:'خاتم الماس الفاخر', cat:'خواتم', brand:'Orient Gems',  emoji:'💍', price:27000, oldPrice:38000, rating:5.0, reviews:34,  colors:['ذهبي','فضي','روزغولد'], sizes:['6','7','8','9'],badge:'hot',   inStock:true,  desc:'خاتم من الذهب 18 قيراط مرصع بالماس الطبيعي المعتمد، يأتي بعلبة هدية فاخرة مع شهادة الأصالة.' },
+  { id:9,  name:'حقيبة كروس بودي', cat:'حقائب', brand:'Élite Paris',   emoji:'👝', price:6600,  oldPrice:8000,  rating:4.4, reviews:67,  colors:['أسود','أبيض','ذهبي'], sizes:['S','M'],         badge:'sale',  inStock:true,  desc:'حقيبة كروس بودي عصرية من الجلد الفيغان عالي الجودة، تصميم باريسي أنيق يناسب الإطلالة النهارية والمسائية.' },
+  { id:10, name:'ساعة سمارت فاخرة', cat:'ساعات', brand:'Royal Touch',  emoji:'⌚', price:16500, oldPrice:null,  rating:4.7, reviews:82,  colors:['أسود','فضي','ذهبي'], sizes:null,               badge:'new',   inStock:true,  desc:'ساعة ذكية بتصميم كلاسيكي فاخر، شاشة AMOLED، مقاومة للماء، تتبع الصحة والنشاط البدني.' },
+  { id:11, name:'سوار ذهبي مجدول', cat:'مجوهرات', brand:'Orient Gems', emoji:'✨', price:4000,  oldPrice:5200,  rating:4.5, reviews:59,  colors:['ذهبي','فضي','روزغولد'], sizes:['16','17','18'], badge:'sale', inStock:true,  desc:'سوار ذهبي مجدول بيد الصانع الماهر، ذهب 18 قيراط، يتوفر بأحجام متعددة مع إمكانية التخصيص.' },
+  { id:12, name:'نظارة إطار كلاسيك', cat:'نظارات', brand:'Milano',      emoji:'👓', price:4700,  oldPrice:null,  rating:4.3, reviews:38,  colors:['أسود','ذهبي','رمادي'], sizes:null,             badge:null,    inStock:false, desc:'نظارة بإطار كلاسيكي من الأسيتات الإيطالية، تصميم خالد لا يخضع لصرعات الموضة العابرة.' },
+  { id:13, name:'حقيبة سفر فاخرة', cat:'حقائب', brand:'Luxe Gold',    emoji:'🧳', price:18500, oldPrice:24000, rating:4.8, reviews:91,  colors:['أسود','نيفي','رمادي'], sizes:['S','M','L'],    badge:'hot',   inStock:true,  desc:'حقيبة سفر من ألياف كربون خفيفة الوزن، أقفال TSA معتمدة، عجلات 360°، ضمان 5 سنوات.' },
+  { id:14, name:'دبوس ربطة عنق ذهبي', cat:'مجوهرات', brand:'Royal Touch', emoji:'📌', price:1650, oldPrice:null,  rating:4.4, reviews:27, colors:['ذهبي','فضي'],          sizes:null,              badge:'new',   inStock:true,  desc:'دبوس ربطة عنق من الذهب المطلي عيار 18، تصميم عصري يضيف لمسة رجولية راقية للإطلالة الرسمية.' },
+  { id:15, name:'محفظة جيب رجالية', cat:'محافظ', brand:'Milano',       emoji:'💼', price:2200,  oldPrice:2900,  rating:4.6, reviews:103, colors:['أسود','بني'],          sizes:null,              badge:'sale',  inStock:true,  desc:'محفظة رجالية من الجلد الأصلي الإيطالي، تصميم نحيل أنيق، حماية RFID للبطاقات البنكية.' },
+  { id:16, name:'خاتم الزمرد الملكي', cat:'خواتم', brand:'Orient Gems', emoji:'💚', price:15500, oldPrice:20000, rating:4.9, reviews:21,  colors:['ذهبي'],               sizes:['6','7','8'],      badge:'hot',   inStock:true,  desc:'خاتم ذهب 18 قيراط مرصع بالزمرد الطبيعي كولومبي، معتمد بشهادة GIA، يأتي بحافظة مخملية.' },
+  { id:17, name:'وشاح حرير إيطالي', cat:'أوشحة', brand:'Élite Paris',  emoji:'🎀', price:2450,  oldPrice:3200,  rating:4.7, reviews:55,  colors:['أحمر','أزرق','أخضر','بنفسجي'], sizes:null,       badge:'sale',  inStock:true,  desc:'وشاح من الحرير الطبيعي 100%، مطبوع بألوان زاهية، خفيف وناعم، يُستخدم كوشاح أو إكسسوار للشعر.' },
+  { id:18, name:'سوار جلدي كلاسيك', cat:'مجوهرات', brand:'Milano',     emoji:'🪬', price:1200,  oldPrice:null,  rating:4.2, reviews:78,  colors:['أسود','بني','عسلي'],  sizes:['S','M','L'],     badge:null,    inStock:true,  desc:'سوار جلدي رجالي بإبزيم معدني فضي، جلد طبيعي دائم، تصميم عصري متعدد الاستخدامات.' },
 ];
 
 /* ══════════════════════════════════════════════════
@@ -2834,7 +2844,7 @@ scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior:
 /* ══════════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════════ */
-function formatPrice(p) { return p.toLocaleString('ar-SA') + ' ر.س'; }
+function formatPrice(p) { return p.toLocaleString('ar-EG') + ' ج.م'; }
 
 function getStars(r) {
   const full = Math.floor(r);
@@ -2862,7 +2872,7 @@ function renderProducts() {
   const start = (state.currentPage - 1) * state.perPage;
   const page  = state.filtered.slice(start, start + state.perPage);
 
-  document.getElementById('shown-count').textContent = state.filtered.length;
+  document.getElementById('shown-count').textContent = state.filtered.length === 0 ? 0 : Math.min(start + state.perPage, state.filtered.length);
   document.getElementById('total-count').textContent = PRODUCTS.length;
 
   if (page.length === 0) {
@@ -3002,7 +3012,7 @@ function applyFilters() {
   const catChecks  = [...document.querySelectorAll('input[name="cat"]:checked')].map(i => i.value);
   const brandChecks= [...document.querySelectorAll('input[name="brand"]:checked')].map(i => i.value);
   const minP = parseFloat(document.getElementById('price-min').value) || 0;
-  const maxP = parseFloat(document.getElementById('price-max').value) || 99999;
+  const maxP = parseFloat(document.getElementById('price-max').value) || 999999;
   const inStock = document.getElementById('in-stock-filter').checked;
   const onSale  = document.getElementById('on-sale-filter').checked;
   const sort    = document.getElementById('sort-select').value;
@@ -3038,7 +3048,7 @@ function clearAllFilters() {
   document.querySelectorAll('input[name="cat"],input[name="brand"]').forEach(i => i.checked = false);
   document.getElementById('price-min').value = '';
   document.getElementById('price-max').value = '';
-  document.getElementById('price-range').value = 5000;
+  document.getElementById('price-range').value = 40000;
   document.getElementById('price-range').style.setProperty('--pct', '100%');
   document.getElementById('in-stock-filter').checked = false;
   document.getElementById('on-sale-filter').checked = false;
@@ -3186,7 +3196,7 @@ function openCheckoutForm() {
   document.getElementById('ch-order-summary').innerHTML = summaryHtml;
 
   // Clear previous inputs
-  ['ch-fname','ch-lname','ch-phone','ch-email','ch-city','ch-address','ch-notes'].forEach(id => {
+  ['ch-fname','ch-lname','ch-phone','ch-email','ch-district','ch-city','ch-address','ch-notes'].forEach(id => {
     const el = document.getElementById(id);
     el.value = '';
     el.classList.remove('error');
@@ -3206,11 +3216,12 @@ document.getElementById('checkout-backdrop').addEventListener('click', e => {
 });
 
 function submitOrder() {
-  // Validate required fields
+  // Validate required fields only
   const fields = [
-    { id: 'ch-fname',   label: 'الاسم الأول' },
+    { id: 'ch-fname',    label: 'الاسم الأول' },
     { id: 'ch-lname',   label: 'اسم العائلة' },
     { id: 'ch-phone',   label: 'رقم الهاتف' },
+    { id: 'ch-district',label: 'المنطقة' },
     { id: 'ch-city',    label: 'المدينة' },
     { id: 'ch-address', label: 'العنوان' },
   ];
@@ -3226,24 +3237,27 @@ function submitOrder() {
   });
   if (!valid) { toast('يرجى تعبئة جميع الحقول المطلوبة *', 'error'); return; }
 
-  const phone = document.getElementById('ch-phone').value.trim();
-  if (!/^(05\d{8}|\+\d{10,15})$/.test(phone)) {
+  // Phone: accept 11 digits only OR with country code (e.g. +20...)
+  const phone = document.getElementById('ch-phone').value.trim().replace(/\s|-/g, '');
+  const phoneValid = /^\d{11}$/.test(phone) || /^\+?\d{10,15}$/.test(phone);
+  if (!phoneValid) {
     document.getElementById('ch-phone').classList.add('error');
-    toast('رقم الهاتف غير صحيح (مثال: 0512345678)', 'error');
+    toast('رقم الهاتف يجب أن يكون 11 رقم (مثال: 01012345678)', 'error');
     return;
   }
 
   // Build order data
-  const fname   = document.getElementById('ch-fname').value.trim();
-  const lname   = document.getElementById('ch-lname').value.trim();
-  const email   = document.getElementById('ch-email').value.trim();
-  const city    = document.getElementById('ch-city').value.trim();
-  const address = document.getElementById('ch-address').value.trim();
-  const notes   = document.getElementById('ch-notes').value.trim();
+  const fname    = document.getElementById('ch-fname').value.trim();
+  const lname    = document.getElementById('ch-lname').value.trim();
+  const email    = document.getElementById('ch-email').value.trim();     // optional
+  const district = document.getElementById('ch-district').value.trim();
+  const city     = document.getElementById('ch-city').value.trim();
+  const address  = document.getElementById('ch-address').value.trim();
+  const notes    = document.getElementById('ch-notes').value.trim();     // optional
   const sub     = state.cart.reduce((a,c) => a + c.price * c.qty, 0);
   const disc    = state.promoApplied ? sub * 0.1 : 0;
   const total   = sub - disc;
-  const orderTime = new Date().toLocaleString('ar-SA', { dateStyle:'short', timeStyle:'short' });
+  const orderTime = new Date().toLocaleString('ar-EG', { dateStyle:'short', timeStyle:'short' });
   const orderNum  = 'LX' + Date.now().toString().slice(-6);
 
   // Build WhatsApp message for admin
@@ -3260,6 +3274,7 @@ function submitOrder() {
     `  • الاسم: ${fname} ${lname}`,
     `  • الهاتف: ${phone}`,
     email ? `  • البريد: ${email}` : null,
+    `  • المنطقة: ${district}`,
     `  • المدينة: ${city}`,
     `  • العنوان: ${address}`,
     notes ? `  • ملاحظات: ${notes}` : null,
@@ -3722,12 +3737,12 @@ document.addEventListener('DOMContentLoaded',()=>{
    REVIEWS DATA & RENDER
 ══════════════════════════════════════════════════ */
 const REVIEWS = [
-  { name:'سارة الأحمد', avatar:'👩', stars:5, date:'منذ 3 أيام', text:'المنتج فاق توقعاتي! الجودة ممتازة والتغليف فاخر جداً. سأطلب مرة أخرى بالتأكيد.', product:'حقيبة الأناقة الكلاسيكية', verified:true },
-  { name:'محمد العمري', avatar:'👨', stars:5, date:'منذ أسبوع', text:'ساعة رائعة، التصميم كلاسيكي أنيق والدقة عالية. تستحق كل ريال دفعته.', product:'ساعة رويال كلاسيك', verified:true },
-  { name:'نورة السعد', avatar:'👩‍🦱', stars:4, date:'منذ أسبوعين', text:'النظارة جميلة ومريحة للاستخدام اليومي، الشحن كان سريعاً والتغليف ممتاز.', product:'نظارة شمسية بريمييم', verified:true },
-  { name:'أحمد الراشد', avatar:'🧔', stars:5, date:'منذ شهر', text:'خاتم الماس أجمل مما رأيته في الصور! زوجتي أحبته كثيراً. خدمة العملاء رائعة.', product:'خاتم الماس الفاخر', verified:true },
-  { name:'ريم الحمدان', avatar:'👱‍♀️', stars:5, date:'منذ شهر', text:'وشاح الكشمير ناعم جداً وجودته عالية، بالضبط ما كنت أبحث عنه. شكراً LUXE!', product:'وشاح كشمير الفاخر', verified:false },
-  { name:'خالد المطيري', avatar:'🧑', stars:4, date:'منذ شهرين', text:'حقيبة السفر خفيفة ومتينة، الأقفال ممتازة والعجلات تدور بسلاسة. أوصي بها.', product:'حقيبة سفر فاخرة', verified:true },
+  { name:'منة الله محمد', avatar:'👩', stars:5, date:'منذ 3 أيام', text:'المنتج فاق توقعاتي! الجودة ممتازة والتغليف فاخر جداً. التوصيل وصل لحد باب البيت في يومين. سأطلب مرة أخرى بالتأكيد.', product:'حقيبة الأناقة الكلاسيكية', verified:true },
+  { name:'كريم عبد الرحمن', avatar:'👨', stars:5, date:'منذ أسبوع', text:'ساعة رائعة، التصميم كلاسيكي أنيق والدقة عالية. تستحق كل جنيه دفعته. التغليف كان محترم جداً.', product:'ساعة رويال كلاسيك', verified:true },
+  { name:'نورهان السيد', avatar:'👩‍🦱', stars:4, date:'منذ أسبوعين', text:'النظارة جميلة ومريحة للاستخدام اليومي، الشحن كان سريع والتغليف ممتاز. ينفع هدية كمان.', product:'نظارة شمسية بريمييم', verified:true },
+  { name:'أحمد حسام', avatar:'🧔', stars:5, date:'منذ شهر', text:'خاتم الماس أجمل مما رأيته في الصور! زوجتي أحبته جداً. خدمة العملاء محترمة وردوا على استفساراتي بسرعة.', product:'خاتم الماس الفاخر', verified:true },
+  { name:'ريم الشناوي', avatar:'👱‍♀️', stars:5, date:'منذ شهر', text:'الوشاح ناعم جداً وجودته عالية، بالضبط اللي كنت بدور عليه. شكراً LUXE على الخدمة الممتازة!', product:'وشاح كشمير الفاخر', verified:false },
+  { name:'محمود طارق', avatar:'🧑', stars:4, date:'منذ شهرين', text:'حقيبة السفر خفيفة ومتينة، الأقفال ممتازة والعجلات بتدور بسلاسة. أوصي بيها لأي حد بيسافر كتير.', product:'حقيبة سفر فاخرة', verified:true },
 ];
 function renderReviews() {
   document.getElementById('reviews-grid').innerHTML = REVIEWS.map(r=>`
