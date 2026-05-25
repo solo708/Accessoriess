@@ -2238,7 +2238,57 @@ footer {
 .user-dd-sep { height: 1px; background: var(--border); margin: 0.3rem 0; }
 .nav-user-wrap { position: relative; }
 </style>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+  /* ── Supabase loader مع fallback تلقائي ── */
+  (function() {
+    function loadScript(src, onSuccess, onFail) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = onSuccess || null;
+      s.onerror = onFail || null;
+      document.head.appendChild(s);
+    }
+
+    var primary   = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+    var secondary = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+
+    loadScript(primary, null, function() {
+      console.warn('⚠️ CDN الأول فشل — جارٍ تجربة البديل...');
+      loadScript(secondary, null, function() {
+        console.warn('⚠️ كلا المصدرين فشلا — الموقع سيعمل بالبيانات المحلية');
+        /* Supabase وهمي يمنع أي خطأ JS */
+        var noop     = function() {};
+        var asyncNoop = async function() { return { data: null, error: null }; };
+        var fakeQuery = function() {
+          var q = {
+            select : function() { return q; },
+            eq     : function() { return q; },
+            order  : function() { return q; },
+            insert : function() { return q; },
+            delete : function() { return q; },
+            single : asyncNoop,
+            then   : function(cb) { return Promise.resolve({ data: [], error: null }).then(cb); }
+          };
+          return q;
+        };
+        window.supabase = {
+          createClient: function() {
+            return {
+              auth: {
+                onAuthStateChange : noop,
+                signUp            : asyncNoop,
+                signInWithPassword: asyncNoop,
+                signOut           : asyncNoop,
+                getUser           : async function() { return { data: { user: null } }; }
+              },
+              from: fakeQuery
+            };
+          }
+        };
+      });
+    });
+  })();
+  </script>
 </head>
 <body>
 
@@ -3227,7 +3277,24 @@ footer {
 ══════════════════════════════════════════════════ */
 const SUPA_URL = 'https://idltyhrhulxsiradkxuv.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkbHR5aHJodWx4c2lyYWRreHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NzczNjEsImV4cCI6MjA5NTI1MzM2MX0.QJ521cjsHPqJ-JlVBhChx6Gj_xJNa57fS2iay0fDfSw';
-const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+/* انتظر حتى يتحمل supabase (الـ script قد يكون async) */
+function waitForSupabase(cb, tries) {
+  tries = tries || 0;
+  if (typeof supabase !== 'undefined' && supabase.createClient) {
+    cb();
+  } else if (tries < 50) {
+    setTimeout(function() { waitForSupabase(cb, tries + 1); }, 100);
+  } else {
+    console.error('❌ Supabase لم يُحمَّل بعد 5 ثوانٍ — تشغيل الموقع بدونه');
+    cb(); // شغّل الموقع على أي حال
+  }
+}
+
+var supa;
+waitForSupabase(function() {
+  supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+});
 
 /* ── جلب المنتجات من Supabase ── */
 async function loadProductsFromDB() {
@@ -3318,18 +3385,20 @@ let state = {
    LOADER
 ══════════════════════════════════════════════════ */
 (function initLoader() {
-  const pct = document.getElementById('loader-pct');
+  const pct    = document.getElementById('loader-pct');
+  const loader = document.getElementById('loader');
+  if (!pct || !loader) return; // حماية لو العنصر مش موجود
   let n = 0;
   const iv = setInterval(() => {
     n += Math.floor(Math.random() * 15) + 5;
     if (n >= 100) { n = 100; clearInterval(iv); }
     pct.textContent = n + '%';
     if (n === 100) {
-      setTimeout(() => {
-        document.getElementById('loader').classList.add('hidden');
-      }, 300);
+      setTimeout(() => { loader.classList.add('hidden'); }, 300);
     }
   }, 120);
+  /* ضمان: لو اللودر فضل شغال أكتر من 6 ثوانٍ، أخفيه قسراً */
+  setTimeout(() => { loader.classList.add('hidden'); }, 6000);
 })();
 
 /* ══════════════════════════════════════════════════
