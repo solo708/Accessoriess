@@ -2238,57 +2238,7 @@ footer {
 .user-dd-sep { height: 1px; background: var(--border); margin: 0.3rem 0; }
 .nav-user-wrap { position: relative; }
 </style>
-  <script>
-  /* ── Supabase loader مع fallback تلقائي ── */
-  (function() {
-    function loadScript(src, onSuccess, onFail) {
-      var s = document.createElement('script');
-      s.src = src;
-      s.onload = onSuccess || null;
-      s.onerror = onFail || null;
-      document.head.appendChild(s);
-    }
-
-    var primary   = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-    var secondary = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-
-    loadScript(primary, null, function() {
-      console.warn('⚠️ CDN الأول فشل — جارٍ تجربة البديل...');
-      loadScript(secondary, null, function() {
-        console.warn('⚠️ كلا المصدرين فشلا — الموقع سيعمل بالبيانات المحلية');
-        /* Supabase وهمي يمنع أي خطأ JS */
-        var noop     = function() {};
-        var asyncNoop = async function() { return { data: null, error: null }; };
-        var fakeQuery = function() {
-          var q = {
-            select : function() { return q; },
-            eq     : function() { return q; },
-            order  : function() { return q; },
-            insert : function() { return q; },
-            delete : function() { return q; },
-            single : asyncNoop,
-            then   : function(cb) { return Promise.resolve({ data: [], error: null }).then(cb); }
-          };
-          return q;
-        };
-        window.supabase = {
-          createClient: function() {
-            return {
-              auth: {
-                onAuthStateChange : noop,
-                signUp            : asyncNoop,
-                signInWithPassword: asyncNoop,
-                signOut           : asyncNoop,
-                getUser           : async function() { return { data: { user: null } }; }
-              },
-              from: fakeQuery
-            };
-          }
-        };
-      });
-    });
-  })();
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
@@ -3278,26 +3228,17 @@ footer {
 const SUPA_URL = 'https://idltyhrhulxsiradkxuv.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkbHR5aHJodWx4c2lyYWRreHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NzczNjEsImV4cCI6MjA5NTI1MzM2MX0.QJ521cjsHPqJ-JlVBhChx6Gj_xJNa57fS2iay0fDfSw';
 
-/* انتظر حتى يتحمل supabase (الـ script قد يكون async) */
-function waitForSupabase(cb, tries) {
-  tries = tries || 0;
-  if (typeof supabase !== 'undefined' && supabase.createClient) {
-    cb();
-  } else if (tries < 50) {
-    setTimeout(function() { waitForSupabase(cb, tries + 1); }, 100);
-  } else {
-    console.error('❌ Supabase لم يُحمَّل بعد 5 ثوانٍ — تشغيل الموقع بدونه');
-    cb(); // شغّل الموقع على أي حال
+/* آمن — لو فشل تحميل مكتبة Supabase الصفحة تشتغل بشكل طبيعي */
+let supa = null;
+try {
+  if (typeof supabase !== 'undefined') {
+    supa = supabase.createClient(SUPA_URL, SUPA_KEY);
   }
-}
-
-var supa;
-waitForSupabase(function() {
-  supa = supabase.createClient(SUPA_URL, SUPA_KEY);
-});
+} catch(e) { console.warn('Supabase init failed:', e); }
 
 /* ── جلب المنتجات من Supabase ── */
 async function loadProductsFromDB() {
+  if (!supa) return;
   try {
     const { data, error } = await supa.from('products').select('*').eq('is_active', true).order('id');
     if (error || !data || data.length === 0) return; // يبقى على البيانات القديمة كاحتياط
@@ -3385,20 +3326,18 @@ let state = {
    LOADER
 ══════════════════════════════════════════════════ */
 (function initLoader() {
-  const pct    = document.getElementById('loader-pct');
-  const loader = document.getElementById('loader');
-  if (!pct || !loader) return; // حماية لو العنصر مش موجود
+  const pct = document.getElementById('loader-pct');
   let n = 0;
   const iv = setInterval(() => {
     n += Math.floor(Math.random() * 15) + 5;
     if (n >= 100) { n = 100; clearInterval(iv); }
     pct.textContent = n + '%';
     if (n === 100) {
-      setTimeout(() => { loader.classList.add('hidden'); }, 300);
+      setTimeout(() => {
+        document.getElementById('loader').classList.add('hidden');
+      }, 300);
     }
   }, 120);
-  /* ضمان: لو اللودر فضل شغال أكتر من 6 ثوانٍ، أخفيه قسراً */
-  setTimeout(() => { loader.classList.add('hidden'); }, 6000);
 })();
 
 /* ══════════════════════════════════════════════════
@@ -3887,9 +3826,10 @@ async function submitOrder() {
   const orderTime = new Date().toLocaleString('ar-EG', { dateStyle:'short', timeStyle:'short' });
 
   // حفظ الطلب في Supabase
-  const { data: { user } } = await supa.auth.getUser();
+  let currentUser = null;
+  try { if (supa) { const { data: { user } } = await supa.auth.getUser(); currentUser = user; } } catch(e) {}
   const orderPayload = {
-    user_id:           user?.id || null,
+    user_id:           currentUser?.id || null,
     customer_name:     `${fname} ${lname}`,
     customer_phone:    phone,
     customer_email:    email || null,
@@ -3906,8 +3846,12 @@ async function submitOrder() {
 
   let orderNum = 'LX' + Date.now().toString().slice(-6);
   try {
-    const { data: savedOrder } = await supa.from('orders').insert(orderPayload).select().single();
-    if (savedOrder) orderNum = savedOrder.order_number;
+    if (supa) {
+      const { data: savedOrder } = await supa.from('orders').insert(orderPayload).select().single();
+      if (savedOrder) orderNum = savedOrder.order_number;
+    } else {
+      throw new Error('no supa');
+    }
   } catch(e) {
     // احتياط: حفظ محلي لو فشل الاتصال
     const orders = getOrders();
@@ -3972,6 +3916,7 @@ async function submitOrder() {
 
 /* ── Orders History ── */
 async function openOrders() {
+  if (!supa) { openAuth('login'); return; }
   const { data: { user } } = await supa.auth.getUser();
   if (!user) { openAuth('login'); return; }
 
@@ -4628,23 +4573,27 @@ const SESSION_KEY = 'luxe_session';
    AUTH — SUPABASE
 ══════════════════════════════════════════════════ */
 
-/* ── مراقبة حالة تسجيل الدخول تلقائياً ── */
-supa.auth.onAuthStateChange((event, session) => {
-  if (session && session.user) {
-    const user = {
-      name:  session.user.user_metadata?.full_name || session.user.email.split('@')[0],
-      email: session.user.email,
-      id:    session.user.id,
-    };
-    onLogin(user);
-    loadWishlistFromDB(session.user.id);
-  } else {
-    onLogout();
-  }
-});
+/* ── مراقبة حالة تسجيل الدخول — تُفعَّل بعد تحميل الصفحة ── */
+function initSupabaseAuth() {
+  if (!supa) return;
+  supa.auth.onAuthStateChange((event, session) => {
+    if (session && session.user) {
+      const user = {
+        name:  session.user.user_metadata?.full_name || session.user.email.split('@')[0],
+        email: session.user.email,
+        id:    session.user.id,
+      };
+      onLogin(user);
+      loadWishlistFromDB(session.user.id);
+    } else {
+      onLogout();
+    }
+  });
+}
 
 /* ── التسجيل ── */
 async function doRegister() {
+  if (!supa) return showAuthError('register-error', '⚠️ تعذّر الاتصال بالخادم، حاول لاحقاً');
   const name  = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim().toLowerCase();
   const pass  = document.getElementById('reg-password').value;
@@ -4677,6 +4626,7 @@ async function doRegister() {
 
 /* ── تسجيل الدخول ── */
 async function doLogin() {
+  if (!supa) return showAuthError('login-error', '⚠️ تعذّر الاتصال بالخادم، حاول لاحقاً');
   const email = document.getElementById('login-email').value.trim().toLowerCase();
   const pass  = document.getElementById('login-password').value;
 
@@ -4705,7 +4655,7 @@ async function doLogin() {
 
 /* ── تسجيل الخروج ── */
 async function doLogout() {
-  await supa.auth.signOut();
+  if (supa) await supa.auth.signOut();
   state.cart = []; state.wishlist = [];
   updateCartUI(); updateWishlistUI();
   toggleUserDropdown(false);
@@ -4714,6 +4664,7 @@ async function doLogout() {
 
 /* ── قائمة الأمنيات مع Supabase ── */
 async function loadWishlistFromDB(userId) {
+  if (!supa) return;
   try {
     const { data } = await supa.from('wishlist').select('product_id').eq('user_id', userId);
     if (data && data.length > 0) {
@@ -4726,6 +4677,7 @@ async function loadWishlistFromDB(userId) {
 }
 
 async function syncWishlistToDB(productId, add) {
+  if (!supa) return;
   const { data: { user } } = await supa.auth.getUser();
   if (!user) return;
   if (add) {
@@ -4812,6 +4764,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   updateLoyalty();
   // تحميل المنتجات من Supabase
   loadProductsFromDB();
+  // تفعيل مراقبة Auth بعد تحميل الصفحة
+  initSupabaseAuth();
   // Cursor hover for new elements
   document.querySelectorAll('button,a,input,select,label').forEach(el=>{
     el.addEventListener('mouseenter',()=>document.body.classList.add('cursor-hover'));
