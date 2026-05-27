@@ -3772,7 +3772,7 @@ function submitOrder() {
   const phone = document.getElementById('ch-phone').value.trim().replace(/\s|-/g,'');
   if (!/^\d{11}$/.test(phone) && !/^\+?\d{10,15}$/.test(phone)) {
     document.getElementById('ch-phone').classList.add('error');
-    toast('رقم الهاتف يجب أن يكون 11 رقم (مثال: 01012345678)', 'error'); return;
+    toast('رقم الهاتف يجب أن يكون 11 رقم', 'error'); return;
   }
 
   const fname    = document.getElementById('ch-fname').value.trim();
@@ -3786,70 +3786,67 @@ function submitOrder() {
   const disc     = state.promoApplied ? Math.round(sub*0.1) : 0;
   const total    = sub - disc;
   const items    = state.cart.map(i=>({id:i.id,name:i.name,emoji:i.emoji||'🛍️',price:i.price,qty:i.qty}));
+  const orderNum = 'LX' + Date.now().toString().slice(-6);
 
-  const btn = document.getElementById('ch-submit-btn');
-  btn.disabled = true; btn.textContent = '⏳ جارٍ الحفظ...';
+  // ① احفظ في localStorage فوراً
+  const orderTime = new Date().toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'});
+  const order = { id:orderNum, time:orderTime, timestamp:Date.now(),
+    customer:{name:`${fname} ${lname}`,phone,email,district,city,address,notes},
+    items, total, disc, status:'معلق' };
+  const orders = getOrders(); orders.unshift(order); saveOrders(orders);
 
-  // حفظ في Supabase مباشرةً
-  (async () => {
-    let orderNum = 'LX' + Date.now().toString().slice(-6);
+  // ② اعرض شاشة التأكيد فوراً بدون انتظار
+  document.getElementById('checkout-form-body').style.display = 'none';
+  document.getElementById('confirm-order-num').textContent = orderNum;
+  document.getElementById('confirm-subtitle').textContent =
+    `شكراً ${fname}! تم استلام طلبك بنجاح. سيتم التواصل معك خلال 24 ساعة.`;
+  document.getElementById('confirm-details').innerHTML = `
+    <div class="confirm-detail-row"><span class="key">العميل</span><span class="val">${fname} ${lname}</span></div>
+    <div class="confirm-detail-row"><span class="key">الهاتف</span><span class="val">${phone}</span></div>
+    <div class="confirm-detail-row"><span class="key">المدينة</span><span class="val">${city}، ${district}</span></div>
+    <div class="confirm-detail-row"><span class="key">عدد المنتجات</span><span class="val">${items.reduce((a,c)=>a+c.qty,0)} قطعة</span></div>
+    <div class="confirm-detail-row"><span class="key">الإجمالي</span><span class="val gold">${formatPrice(total)}</span></div>
+  `;
+  document.getElementById('order-confirm').classList.add('show');
+  state.cart = []; state.promoApplied = false;
+  updateCartUI(); persistUserData();
+
+  // ③ احفظ في Supabase وابعت إيميل في الخلفية (لا ينتظره أحد)
+  setTimeout(async () => {
     try {
-      const db     = window._supaDB;
-      const user   = db ? (await db.auth.getUser()).data?.user : null;
+      const db = window._supaDB;
+      if (!db) return;
+      const { data: { user } } = await db.auth.getUser();
+      const { data: saved } = await db.from('orders').insert({
+        user_id: user?.id || null,
+        customer_name: `${fname} ${lname}`.trim(),
+        customer_phone: phone,
+        customer_email: email || null,
+        customer_city: city,
+        customer_district: district,
+        customer_address: address,
+        customer_notes: notes || null,
+        items, subtotal: sub, discount: disc, total, status: 'pending',
+      }).select().single();
 
-      if (db) {
-        const { data: saved, error } = await db.from('orders').insert({
-          user_id:           user?.id || null,
-          customer_name:     `${fname} ${lname}`.trim(),
-          customer_phone:    phone,
-          customer_email:    email || null,
-          customer_city:     city,
+      const finalNum = saved?.order_number || orderNum;
+      const numEl = document.getElementById('confirm-order-num');
+      if (numEl) numEl.textContent = finalNum;
+      console.log('✅ Saved to Supabase:', finalNum);
+
+      if (window._sendOrderEmail) {
+        window._sendOrderEmail({
+          order_number: finalNum,
+          customer_name: `${fname} ${lname}`,
+          customer_phone: phone,
+          customer_city: city,
           customer_district: district,
-          customer_address:  address,
-          customer_notes:    notes || null,
-          items,
-          subtotal:          sub,
-          discount:          disc,
-          total,
-          status:            'pending',
-        }).select().single();
-
-        if (saved) orderNum = saved.order_number;
-        if (error) console.warn('Supabase insert error:', error.message);
+          customer_address: address,
+          items, total, notes,
+        });
       }
-    } catch(e) { console.warn('Order save error:', e); }
-
-    // احتياط: حفظ في localStorage
-    const orderTime = new Date().toLocaleString('ar-EG', { dateStyle:'short', timeStyle:'short' });
-    const order = { id:orderNum, time:orderTime, timestamp:Date.now(),
-      customer:{name:`${fname} ${lname}`,phone,email,district,city,address,notes},
-      items, total, disc, status:'معلق' };
-    const orders = getOrders(); orders.unshift(order); saveOrders(orders);
-
-    // إرسال إيميل
-    if (window._sendOrderEmail) {
-      window._sendOrderEmail({ order_number:orderNum, customer_name:`${fname} ${lname}`,
-        customer_phone:phone, customer_city:city, customer_district:district,
-        customer_address:address, items, total, notes });
-    }
-
-    // شاشة التأكيد
-    document.getElementById('checkout-form-body').style.display = 'none';
-    document.getElementById('confirm-order-num').textContent = orderNum;
-    document.getElementById('confirm-subtitle').textContent =
-      `شكراً ${fname}! تم استلام طلبك بنجاح. سيتم التواصل معك خلال 24 ساعة.`;
-    document.getElementById('confirm-details').innerHTML = `
-      <div class="confirm-detail-row"><span class="key">العميل</span><span class="val">${fname} ${lname}</span></div>
-      <div class="confirm-detail-row"><span class="key">الهاتف</span><span class="val">${phone}</span></div>
-      <div class="confirm-detail-row"><span class="key">المدينة</span><span class="val">${city}، ${district}</span></div>
-      <div class="confirm-detail-row"><span class="key">عدد المنتجات</span><span class="val">${items.reduce((a,c)=>a+c.qty,0)} قطعة</span></div>
-      <div class="confirm-detail-row"><span class="key">الإجمالي</span><span class="val gold">${formatPrice(total)}</span></div>
-    `;
-    document.getElementById('order-confirm').classList.add('show');
-    state.cart = []; state.promoApplied = false;
-    updateCartUI(); persistUserData();
-    btn.disabled = false; btn.textContent = '✅ تأكيد الطلب';
-  })();
+    } catch(e) { console.warn('Supabase save error:', e); }
+  }, 100);
 }
 
 /* ── Orders History ── */
