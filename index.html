@@ -2000,16 +2000,6 @@ footer {
 .confirm-detail-row .key { color: var(--text-dim); }
 .confirm-detail-row .val { color: var(--cream); }
 .confirm-detail-row .val.gold { color: var(--gold); font-family: 'Cormorant Garamond',serif; font-size:1rem; }
-.confirm-wa-btn {
-  display: flex; align-items: center; gap: 0.6rem;
-  padding: 0.85rem 2rem;
-  background: #25d366; color: #fff;
-  font-size: 0.82rem; font-weight: 700;
-  border-radius: var(--radius); letter-spacing: 0.05em;
-  transition: background var(--tr), transform var(--tr);
-  margin-bottom: 0.75rem; width: 100%; justify-content: center;
-}
-.confirm-wa-btn:hover { background: #1ebe5d; transform: translateY(-1px); }
 .confirm-close-btn {
   font-size: 0.78rem; color: var(--text-dim);
   text-decoration: underline;
@@ -2391,7 +2381,7 @@ footer {
       </div>
 
       <button class="ch-submit-btn" id="ch-submit-btn" onclick="submitOrder()">
-        تأكيد الطلب وإرسال ✓
+        تأكيد الطلب ✓
       </button>
       <p class="ch-note">🔒 بياناتك محمية وآمنة · سيتم التواصل معك خلال 24 ساعة</p>
     </div>
@@ -2406,9 +2396,6 @@ footer {
         <div class="num" id="confirm-order-num">LX000000</div>
       </div>
       <div class="confirm-details" id="confirm-details"></div>
-      <button class="confirm-wa-btn" id="confirm-wa-btn">
-        <span>📲</span> إرسال تفاصيل الطلب عبر واتساب
-      </button>
       <button class="confirm-close-btn" onclick="closeCheckoutForm()">العودة للمتجر</button>
     </div>
 
@@ -3732,7 +3719,7 @@ function openCheckoutForm() {
   }
 
   const btn = document.getElementById('ch-submit-btn');
-  btn.disabled = false; btn.textContent = 'تأكيد الطلب وإرسال ✓';
+  btn.disabled = false; btn.textContent = 'تأكيد الطلب ✓';
 
   closeCart();
   document.getElementById('checkout-backdrop').classList.add('open');
@@ -3809,26 +3796,6 @@ function submitOrder() {
     }
   }
 
-  // Build WhatsApp message
-  let itemsText = state.cart.map(i=>`  • ${i.emoji} ${i.name} × ${i.qty} = ${formatPrice(i.price*i.qty)}`).join('\n');
-  if (disc>0) itemsText += `\n  • 🏷️ خصم: − ${formatPrice(disc)}`;
-  const msg = [
-    '🛍️ *طلب جديد — LUXE*','━━━━━━━━━━━━━━━━━━━',
-    `📋 *رقم الطلب:* ${orderNum}`,`🕐 *الوقت:* ${orderTime}`,'',
-    '👤 *بيانات العميل:*',
-    `  • الاسم: ${fname} ${lname}`,`  • الهاتف: ${phone}`,
-    email?`  • البريد: ${email}`:null,
-    `  • المنطقة: ${district}`,`  • المدينة: ${city}`,`  • العنوان: ${address}`,
-    notes?`  • ملاحظات: ${notes}`:null,'',
-    '🛒 *تفاصيل الطلب:*', itemsText,'',
-    `💰 *الإجمالي: ${formatPrice(total)}*`,
-    disc>0?'🏷️ (تم تطبيق كود خصم)':null,
-    '━━━━━━━━━━━━━━━━━━━','✅ يرجى التواصل مع العميل لتأكيد الطلب',
-  ].filter(l=>l!==null).join('\n');
-
-  const adminNumber = '201285645448';
-  const waUrl = `https://wa.me/${adminNumber}?text=${encodeURIComponent(msg)}`;
-
   const btn = document.getElementById('ch-submit-btn');
   btn.disabled = true; btn.textContent = '⏳ جاري التأكيد...';
 
@@ -3845,7 +3812,6 @@ function submitOrder() {
       <div class="confirm-detail-row"><span class="key">عدد المنتجات</span><span class="val">${state.cart.reduce((a,c)=>a+c.qty,0)} قطعة</span></div>
       <div class="confirm-detail-row"><span class="key">الإجمالي</span><span class="val gold">${formatPrice(total)}</span></div>
     `;
-    document.getElementById('confirm-wa-btn').onclick = () => window.open(waUrl,'_blank');
     document.getElementById('order-confirm').classList.add('show');
 
     // Clear cart
@@ -4864,36 +4830,78 @@ window.addEventListener('load', function() {
     };
   }
 
-  /* ══ حفظ الطلبات في Supabase ══ */
+  /* ══ حفظ الطلبات في Supabase + إرسال الإيميل ══ */
   if (typeof submitOrder === 'function') {
     const _orig = submitOrder;
-    window.submitOrder = function() {
-      _orig();
-      setTimeout(async () => {
-        try {
-          const orders = typeof getOrders === 'function' ? getOrders() : [];
-          if (!orders.length) return;
-          const o = orders[0];
-          const { data: { user } } = await db.auth.getUser();
-          await db.from('orders').insert({
-            user_id: user?.id || null,
-            customer_name:     o.customer?.name || '',
-            customer_phone:    o.customer?.phone || '',
-            customer_email:    o.customer?.email || null,
-            customer_city:     o.customer?.city || '',
-            customer_district: o.customer?.district || '',
-            customer_address:  o.customer?.address || '',
-            customer_notes:    o.customer?.notes || null,
-            items:    o.items || [],
-            subtotal: o.total || 0,
-            total:    o.total || 0,
-          });
+    window.submitOrder = async function() {
 
-          // إرسال إشعار الإيميل
-          await sendOrderEmail(o);
-          console.log('✅ Order saved to Supabase');
-        } catch(e) { console.warn('Order sync failed:', e); }
-      }, 1000);
+      // احفظ بيانات السلة قبل ما تتمسح
+      const cartSnapshot = (typeof state !== 'undefined' && state.cart)
+        ? state.cart.map(i => ({ id:i.id, name:i.name, emoji:i.emoji||'🛍️', price:i.price, qty:i.qty }))
+        : [];
+
+      const totalSnapshot = cartSnapshot.reduce((s,i) => s + i.price * i.qty, 0);
+
+      // اقرأ بيانات الفورم مباشرةً
+      const getVal = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+      const fname    = getVal('checkout-fname');
+      const lname    = getVal('checkout-lname');
+      const phone    = getVal('checkout-phone');
+      const city     = getVal('checkout-city');
+      const district = getVal('checkout-district');
+      const address  = getVal('checkout-address');
+      const notes    = getVal('checkout-notes');
+      const email    = getVal('checkout-email');
+
+      // لو الفورم ناقص، شغّل الأصلي بس (سيظهر خطأ للمستخدم)
+      if (!fname || !phone || !city || !district || !address) {
+        _orig();
+        return;
+      }
+
+      // شغّل الدالة الأصلية (تتحقق وتحفظ الطلب)
+      _orig();
+
+      // احفظ في Supabase وابعت إيميل
+      try {
+        const { data: { user } } = await db.auth.getUser();
+        const orderNum = 'LX' + Date.now().toString().slice(-6);
+
+        const payload = {
+          user_id:           user?.id || null,
+          customer_name:     `${fname} ${lname}`.trim(),
+          customer_phone:    phone,
+          customer_email:    email || null,
+          customer_city:     city,
+          customer_district: district,
+          customer_address:  address,
+          customer_notes:    notes || null,
+          items:             cartSnapshot,
+          subtotal:          totalSnapshot,
+          total:             totalSnapshot,
+          status:            'pending',
+        };
+
+        const { data: saved } = await db.from('orders').insert(payload).select().single();
+        const finalOrderNum = saved?.order_number || orderNum;
+        console.log('✅ Order saved:', finalOrderNum);
+
+        // إرسال إيميل الإشعار
+        await sendOrderEmail({
+          order_number:      finalOrderNum,
+          customer_name:     payload.customer_name,
+          customer_phone:    phone,
+          customer_city:     city,
+          customer_district: district,
+          customer_address:  address,
+          items:             cartSnapshot,
+          total:             totalSnapshot,
+          notes:             notes,
+        });
+
+      } catch(e) {
+        console.warn('⚠️ Supabase/Email error:', e);
+      }
     };
   }
 
