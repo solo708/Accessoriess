@@ -4740,6 +4740,12 @@ window.addEventListener('load', function() {
       };
       if (typeof onLogin === 'function') onLogin(user);
 
+      // ربط الطلبات القديمة (guest) بالحساب
+      await db.from('orders')
+        .update({ user_id: u.id })
+        .eq('customer_email', u.email)
+        .is('user_id', null);
+
       // تحميل الأمنيات
       const { data: wish } = await db.from('wishlist').select('product_id').eq('user_id', u.id);
       if (wish && wish.length && typeof state !== 'undefined') {
@@ -4811,6 +4817,8 @@ window.addEventListener('load', function() {
     if (typeof updateCartUI === 'function') updateCartUI();
     if (typeof updateWishlistUI === 'function') updateWishlistUI();
     if (typeof toggleUserDropdown === 'function') toggleUserDropdown(false);
+    if (typeof onLogout === 'function') onLogout();
+    if (typeof clearSession === 'function') clearSession();
     if (typeof toast === 'function') toast('تم تسجيل الخروج 👋', 'gold');
   };
 
@@ -4914,16 +4922,28 @@ window.addEventListener('load', function() {
     const list = document.getElementById('orders-list');
     list.innerHTML = '<div class="orders-empty">⏳ جارٍ التحميل...</div>';
 
-    const { data, error } = await db.from('orders')
+    // جيب الطلبات بالـ user_id أو بالإيميل
+    const { data: byId } = await db.from('orders')
       .select('*').eq('user_id', user.id).order('created_at', { ascending: false });
 
-    if (error || !data || !data.length) {
+    const { data: byEmail } = await db.from('orders')
+      .select('*').eq('customer_email', user.email)
+      .is('user_id', null).order('created_at', { ascending: false });
+
+    // ادمج وشيل المكرر
+    const allOrders = [...(byId || [])];
+    (byEmail || []).forEach(o => {
+      if (!allOrders.find(x => x.id === o.id)) allOrders.push(o);
+    });
+    allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    if (!allOrders.length) {
       list.innerHTML = '<div class="orders-empty">📭 ما عندك طلبات بعد</div>';
       return;
     }
 
     const st = { pending:'معلق', confirmed:'مؤكد', shipped:'قيد الشحن', delivered:'تم التوصيل', cancelled:'ملغي' };
-    list.innerHTML = data.map(o => `
+    list.innerHTML = allOrders.map(o => `
       <div class="order-card">
         <div class="order-card-head">
           <span class="order-card-num"># ${o.order_number}</span>
