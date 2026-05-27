@@ -2000,6 +2000,16 @@ footer {
 .confirm-detail-row .key { color: var(--text-dim); }
 .confirm-detail-row .val { color: var(--cream); }
 .confirm-detail-row .val.gold { color: var(--gold); font-family: 'Cormorant Garamond',serif; font-size:1rem; }
+.confirm-wa-btn {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.85rem 2rem;
+  background: #25d366; color: #fff;
+  font-size: 0.82rem; font-weight: 700;
+  border-radius: var(--radius); letter-spacing: 0.05em;
+  transition: background var(--tr), transform var(--tr);
+  margin-bottom: 0.75rem; width: 100%; justify-content: center;
+}
+.confirm-wa-btn:hover { background: #1ebe5d; transform: translateY(-1px); }
 .confirm-close-btn {
   font-size: 0.78rem; color: var(--text-dim);
   text-decoration: underline;
@@ -2381,7 +2391,7 @@ footer {
       </div>
 
       <button class="ch-submit-btn" id="ch-submit-btn" onclick="submitOrder()">
-        تأكيد الطلب ✓
+        تأكيد الطلب وإرسال ✓
       </button>
       <p class="ch-note">🔒 بياناتك محمية وآمنة · سيتم التواصل معك خلال 24 ساعة</p>
     </div>
@@ -2396,6 +2406,9 @@ footer {
         <div class="num" id="confirm-order-num">LX000000</div>
       </div>
       <div class="confirm-details" id="confirm-details"></div>
+      <button class="confirm-wa-btn" id="confirm-wa-btn">
+        <span>✅</span> تأكيد الطلب
+      </button>
       <button class="confirm-close-btn" onclick="closeCheckoutForm()">العودة للمتجر</button>
     </div>
 
@@ -2575,7 +2588,7 @@ footer {
           </div>
           <button class="user-dd-item" onclick="openWishlist();toggleUserDropdown()">🤍 قائمة الأمنيات</button>
           <button class="user-dd-item" onclick="openCart();toggleUserDropdown()">🛒 سلة التسوق</button>
-          <button class="user-dd-item" onclick="toggleUserDropdown(false);openOrders()">📦 طلباتي</button>
+          <button class="user-dd-item" onclick="openOrders();toggleUserDropdown()">📦 طلباتي</button>
           <div class="user-dd-sep"></div>
           <button class="user-dd-item danger" onclick="doLogout()">🚪 تسجيل الخروج</button>
         </div>
@@ -3719,7 +3732,7 @@ function openCheckoutForm() {
   }
 
   const btn = document.getElementById('ch-submit-btn');
-  btn.disabled = false; btn.textContent = 'تأكيد الطلب ✓';
+  btn.disabled = false; btn.textContent = 'تأكيد الطلب وإرسال ✓';
 
   closeCart();
   document.getElementById('checkout-backdrop').classList.add('open');
@@ -3772,35 +3785,23 @@ function submitOrder() {
   const sub      = state.cart.reduce((a,c) => a + c.price*c.qty, 0);
   const disc     = state.promoApplied ? sub*0.1 : 0;
   const total    = sub - disc;
-  const orderNum = 'LX' + Date.now().toString().slice(-6);
-  const orderTime = new Date().toLocaleString('ar-EG', { dateStyle:'short', timeStyle:'short' });
+  const items    = state.cart.map(i=>({id:i.id,name:i.name,emoji:i.emoji||'🛍️',price:i.price,qty:i.qty}));
 
-  // Save to localStorage
+  const btn = document.getElementById('ch-submit-btn');
+  btn.disabled = true; btn.textContent = '⏳ جارٍ الحفظ...';
+
+  // حفظ في localStorage كاحتياط
+  const orderNum  = 'LX' + Date.now().toString().slice(-6);
+  const orderTime = new Date().toLocaleString('ar-EG', { dateStyle:'short', timeStyle:'short' });
   const order = {
     id: orderNum, time: orderTime, timestamp: Date.now(),
     customer: { name:`${fname} ${lname}`, phone, email, district, city, address, notes },
-    items: state.cart.map(i=>({id:i.id,name:i.name,emoji:i.emoji,price:i.price,qty:i.qty})),
-    total, disc, status:'معلق'
+    items, total, disc, status:'معلق'
   };
-  const orders = getOrders();
-  orders.unshift(order);
-  saveOrders(orders);
-
-  // Save address to user profile for next autofill
-  const session = getSession();
-  if (session) {
-    const users = getUsers();
-    if (users[session.email]) {
-      users[session.email].lastAddress = { phone, district, city, address };
-      saveUsers(users);
-    }
-  }
-
-  const btn = document.getElementById('ch-submit-btn');
-  btn.disabled = true; btn.textContent = '⏳ جاري التأكيد...';
+  const orders = getOrders(); orders.unshift(order); saveOrders(orders);
 
   setTimeout(() => {
-    // Show confirmation screen
+    // شاشة التأكيد
     document.getElementById('checkout-form-body').style.display = 'none';
     document.getElementById('confirm-order-num').textContent = orderNum;
     document.getElementById('confirm-subtitle').textContent =
@@ -3814,57 +3815,38 @@ function submitOrder() {
     `;
     document.getElementById('order-confirm').classList.add('show');
 
-    // Clear cart
+    // مسح السلة
     state.cart = []; state.promoApplied = false;
     updateCartUI(); persistUserData();
+    btn.disabled = false; btn.textContent = '✅ تأكيد الطلب';
   }, 600);
 }
 
 /* ── Orders History ── */
-async function openOrders() {
-  const SUPA_URL = 'https://idltyhrhulxsiradkxuv.supabase.co';
-  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkbHR5aHJodWx4c2lyYWRreHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NzczNjEsImV4cCI6MjA5NTI1MzM2MX0.QJ521cjsHPqJ-JlVBhChx6Gj_xJNa57fS2iay0fDfSw';
-
-  if (typeof supabase === 'undefined') { openAuth('login'); return; }
-  const _db = supabase.createClient(SUPA_URL, SUPA_KEY);
-  const { data: { user } } = await _db.auth.getUser();
-  if (!user) { openAuth('login'); return; }
-
-  document.getElementById('orders-backdrop').classList.add('open');
+function openOrders() {
+  const session = getSession();
+  if (!session) { openAuth('login'); return; }
+  const allOrders = getOrders();
+  // filter by user email
+  const myOrders = allOrders.filter(o => o.customer.email === session.email || !o.customer.email);
   const list = document.getElementById('orders-list');
-  list.innerHTML = '<div class="orders-empty">⏳ جارٍ التحميل...</div>';
-
-  const { data: byId } = await _db.from('orders')
-    .select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-
-  const { data: byEmail } = await _db.from('orders')
-    .select('*').eq('customer_email', user.email)
-    .is('user_id', null).order('created_at', { ascending: false });
-
-  const allOrders = [...(byId || [])];
-  (byEmail || []).forEach(o => {
-    if (!allOrders.find(x => x.id === o.id)) allOrders.push(o);
-  });
-  allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-  if (!allOrders.length) {
-    list.innerHTML = '<div class="orders-empty">📭 ما عندك طلبات بعد</div>';
-    return;
+  if (myOrders.length === 0) {
+    list.innerHTML = '<div class="orders-empty">📭 ما عندك طلبات بعد<br><span style="font-size:0.75rem;color:var(--text-dim);margin-top:0.5rem;display:block">ابدأ تسوق وارجع هنا!</span></div>';
+  } else {
+    list.innerHTML = myOrders.map(o => `
+      <div class="order-card">
+        <div class="order-card-head">
+          <span class="order-card-num"># ${o.id}</span>
+          <span class="order-card-date">${o.time}</span>
+        </div>
+        <div class="order-card-items">${o.items.map(i=>`${i.emoji} ${i.name} ×${i.qty}`).join(' · ')}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem">
+          <span class="order-card-total">${formatPrice(o.total)}</span>
+          <span class="order-card-status">${o.status || 'معلق'}</span>
+        </div>
+      </div>`).join('');
   }
-
-  const st = { pending:'معلق', confirmed:'مؤكد', shipped:'قيد الشحن', delivered:'تم التوصيل', cancelled:'ملغي' };
-  list.innerHTML = allOrders.map(o => `
-    <div class="order-card">
-      <div class="order-card-head">
-        <span class="order-card-num"># ${o.order_number}</span>
-        <span class="order-card-date">${new Date(o.created_at).toLocaleDateString('ar-EG')}</span>
-      </div>
-      <div class="order-card-items">${(o.items||[]).map(i=>`${i.emoji||'🛍️'} ${i.name} ×${i.qty}`).join(' · ')}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem">
-        <span class="order-card-total">${typeof formatPrice==='function'?formatPrice(o.total):o.total+' ج.م'}</span>
-        <span class="order-card-status">${st[o.status]||o.status}</span>
-      </div>
-    </div>`).join('');
+  document.getElementById('orders-backdrop').classList.add('open');
 }
 function closeOrders() { document.getElementById('orders-backdrop').classList.remove('open'); }
 document.getElementById('orders-backdrop').addEventListener('click', e => {
@@ -4583,15 +4565,16 @@ function doLogin() {
 }
 
 /* ── logout ── */
-async function doLogout() {
-  if (typeof supabase !== 'undefined') {
-    try {
-      const _db = supabase.createClient(
-        'https://idltyhrhulxsiradkxuv.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkbHR5aHJodWx4c2lyYWRreHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NzczNjEsImV4cCI6MjA5NTI1MzM2MX0.QJ521cjsHPqJ-JlVBhChx6Gj_xJNa57fS2iay0fDfSw'
-      );
-      await _db.auth.signOut();
-    } catch(e) { console.warn('signOut error:', e); }
+function doLogout() {
+  const session = getSession();
+  if (session) {
+    /* save current cart & wishlist before logout */
+    const users = getUsers();
+    if (users[session.email]) {
+      users[session.email].cart     = state.cart;
+      users[session.email].wishlist = state.wishlist;
+      saveUsers(users);
+    }
   }
   clearSession();
   state.cart = []; state.wishlist = [];
@@ -4759,12 +4742,6 @@ window.addEventListener('load', function() {
       };
       if (typeof onLogin === 'function') onLogin(user);
 
-      // ربط الطلبات القديمة (guest) بالحساب
-      await db.from('orders')
-        .update({ user_id: u.id })
-        .eq('customer_email', u.email)
-        .is('user_id', null);
-
       // تحميل الأمنيات
       const { data: wish } = await db.from('wishlist').select('product_id').eq('user_id', u.id);
       if (wish && wish.length && typeof state !== 'undefined') {
@@ -4829,7 +4806,15 @@ window.addEventListener('load', function() {
     if (typeof closeAuth === 'function') closeAuth();
   };
 
-  /* ══ تسجيل الخروج — يتم التعامل معه في doLogout الرئيسية ══ */
+  /* ══ تسجيل الخروج ══ */
+  window.doLogout = async function() {
+    await db.auth.signOut();
+    if (typeof state !== 'undefined') { state.cart = []; state.wishlist = []; }
+    if (typeof updateCartUI === 'function') updateCartUI();
+    if (typeof updateWishlistUI === 'function') updateWishlistUI();
+    if (typeof toggleUserDropdown === 'function') toggleUserDropdown(false);
+    if (typeof toast === 'function') toast('تم تسجيل الخروج 👋', 'gold');
+  };
 
   /* ══ مزامنة الأمنيات ══ */
   if (typeof toggleWishlist === 'function') {
@@ -4851,78 +4836,92 @@ window.addEventListener('load', function() {
   if (typeof submitOrder === 'function') {
     const _orig = submitOrder;
     window.submitOrder = async function() {
-
-      // احفظ بيانات السلة قبل ما تتمسح
-      const cartSnapshot = (typeof state !== 'undefined' && state.cart)
-        ? state.cart.map(i => ({ id:i.id, name:i.name, emoji:i.emoji||'🛍️', price:i.price, qty:i.qty }))
-        : [];
-
-      const totalSnapshot = cartSnapshot.reduce((s,i) => s + i.price * i.qty, 0);
-
-      // اقرأ بيانات الفورم مباشرةً
-      const getVal = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
-      const fname    = getVal('checkout-fname');
-      const lname    = getVal('checkout-lname');
-      const phone    = getVal('checkout-phone');
-      const city     = getVal('checkout-city');
-      const district = getVal('checkout-district');
-      const address  = getVal('checkout-address');
-      const notes    = getVal('checkout-notes');
-      const email    = getVal('checkout-email');
-
-      // لو الفورم ناقص، شغّل الأصلي بس (سيظهر خطأ للمستخدم)
-      if (!fname || !phone || !city || !district || !address) {
-        _orig();
-        return;
-      }
-
-      // شغّل الدالة الأصلية (تتحقق وتحفظ الطلب)
+      // شغّل الدالة الأصلية (تتحقق من الفورم وتعرض شاشة التأكيد)
       _orig();
 
-      // احفظ في Supabase وابعت إيميل
-      try {
-        const { data: { user } } = await db.auth.getUser();
-        const orderNum = 'LX' + Date.now().toString().slice(-6);
+      // انتظر قليلاً ثم احفظ في Supabase
+      setTimeout(async () => {
+        try {
+          const orders = typeof getOrders === 'function' ? getOrders() : [];
+          if (!orders.length) return;
+          const o = orders[0];
 
-        const payload = {
-          user_id:           user?.id || null,
-          customer_name:     `${fname} ${lname}`.trim(),
-          customer_phone:    phone,
-          customer_email:    email || null,
-          customer_city:     city,
-          customer_district: district,
-          customer_address:  address,
-          customer_notes:    notes || null,
-          items:             cartSnapshot,
-          subtotal:          totalSnapshot,
-          total:             totalSnapshot,
-          status:            'pending',
-        };
+          const { data: { user } } = await db.auth.getUser();
 
-        const { data: saved } = await db.from('orders').insert(payload).select().single();
-        const finalOrderNum = saved?.order_number || orderNum;
-        console.log('✅ Order saved:', finalOrderNum);
+          const { data: saved } = await db.from('orders').insert({
+            user_id:           user?.id || null,
+            customer_name:     o.customer?.name || '',
+            customer_phone:    o.customer?.phone || '',
+            customer_email:    o.customer?.email || null,
+            customer_city:     o.customer?.city || '',
+            customer_district: o.customer?.district || '',
+            customer_address:  o.customer?.address || '',
+            customer_notes:    o.customer?.notes || null,
+            items:             o.items || [],
+            subtotal:          o.total || 0,
+            discount:          o.disc || 0,
+            total:             o.total || 0,
+            status:            'pending',
+          }).select().single();
 
-        // إرسال إيميل الإشعار
-        await sendOrderEmail({
-          order_number:      finalOrderNum,
-          customer_name:     payload.customer_name,
-          customer_phone:    phone,
-          customer_city:     city,
-          customer_district: district,
-          customer_address:  address,
-          items:             cartSnapshot,
-          total:             totalSnapshot,
-          notes:             notes,
-        });
+          const orderNum = saved?.order_number || o.id;
 
-      } catch(e) {
-        console.warn('⚠️ Supabase/Email error:', e);
-      }
+          // تحديث رقم الطلب في شاشة التأكيد
+          const numEl = document.getElementById('confirm-order-num');
+          if (numEl) numEl.textContent = orderNum;
+
+          // إرسال إيميل الإشعار
+          await sendOrderEmail({
+            order_number:      orderNum,
+            customer_name:     o.customer?.name || '',
+            customer_phone:    o.customer?.phone || '',
+            customer_city:     o.customer?.city || '',
+            customer_district: o.customer?.district || '',
+            customer_address:  o.customer?.address || '',
+            items:             o.items || [],
+            total:             o.total || 0,
+            notes:             o.customer?.notes || '',
+          });
+
+          console.log('✅ Order saved & email sent:', orderNum);
+        } catch(e) {
+          console.warn('⚠️ Supabase/Email error:', e);
+        }
+      }, 800);
     };
   }
 
-  /* ══ عرض الطلبات — يتم التعامل معه في openOrders الرئيسية ══ */
+  /* ══ عرض الطلبات من Supabase ══ */
+  window.openOrders = async function() {
+    const { data: { user } } = await db.auth.getUser();
+    if (!user) { if (typeof openAuth === 'function') openAuth('login'); return; }
+
+    document.getElementById('orders-backdrop').classList.add('open');
+    const list = document.getElementById('orders-list');
+    list.innerHTML = '<div class="orders-empty">⏳ جارٍ التحميل...</div>';
+
+    const { data, error } = await db.from('orders')
+      .select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+
+    if (error || !data || !data.length) {
+      list.innerHTML = '<div class="orders-empty">📭 ما عندك طلبات بعد</div>';
+      return;
+    }
+
+    const st = { pending:'معلق', confirmed:'مؤكد', shipped:'قيد الشحن', delivered:'تم التوصيل', cancelled:'ملغي' };
+    list.innerHTML = data.map(o => `
+      <div class="order-card">
+        <div class="order-card-head">
+          <span class="order-card-num"># ${o.order_number}</span>
+          <span class="order-card-date">${new Date(o.created_at).toLocaleDateString('ar-EG')}</span>
+        </div>
+        <div class="order-card-items">${(o.items||[]).map(i=>`${i.emoji||'🛍️'} ${i.name} ×${i.qty}`).join(' · ')}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem">
+          <span class="order-card-total">${typeof formatPrice==='function'?formatPrice(o.total):o.total+' ج.م'}</span>
+          <span class="order-card-status">${st[o.status]||o.status}</span>
+        </div>
+      </div>`).join('');
+  };
 
   /* ══ EmailJS — إشعارات الطلبات ══ */
   emailjs.init('g-WwXl5g9gxxSUFBs');
