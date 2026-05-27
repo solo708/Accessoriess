@@ -2260,6 +2260,16 @@ footer {
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <!-- ═══ ERUDA MOBILE CONSOLE (احذفه بعد الانتهاء من التطوير) ═══ -->
+  <script>
+    // يظهر فقط لو أضفت ?debug في الرابط مثل: luxe-store.com?debug
+    if (window.location.search.includes('debug')) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+      document.head.appendChild(s);
+      s.onload = function() { eruda.init(); };
+    }
+  </script>
 </head>
 <body>
 
@@ -3811,42 +3821,65 @@ function submitOrder() {
   state.cart = []; state.promoApplied = false;
   updateCartUI(); persistUserData();
 
-  // ③ احفظ في Supabase وابعت إيميل في الخلفية (لا ينتظره أحد)
+  // ③ احفظ في Supabase وابعت إيميل في الخلفية
   setTimeout(async () => {
+    let finalNum = orderNum;
+
+    // أ) حفظ في Supabase
     try {
       const db = window._supaDB;
-      if (!db) return;
-      const { data: { user } } = await db.auth.getUser();
-      const { data: saved } = await db.from('orders').insert({
-        user_id: user?.id || null,
-        customer_name: `${fname} ${lname}`.trim(),
-        customer_phone: phone,
-        customer_email: email || null,
-        customer_city: city,
-        customer_district: district,
-        customer_address: address,
-        customer_notes: notes || null,
-        items, subtotal: sub, discount: disc, total, status: 'pending',
-      }).select().single();
+      if (db) {
+        let userId = null;
+        try { const { data: a } = await db.auth.getUser(); userId = a?.user?.id || null; } catch(_) {}
 
-      const finalNum = saved?.order_number || orderNum;
-      const numEl = document.getElementById('confirm-order-num');
-      if (numEl) numEl.textContent = finalNum;
-      console.log('✅ Saved to Supabase:', finalNum);
-
-      if (window._sendOrderEmail) {
-        window._sendOrderEmail({
-          order_number: finalNum,
-          customer_name: `${fname} ${lname}`,
-          customer_phone: phone,
-          customer_city: city,
+        const { data: saved, error: insertError } = await db.from('orders').insert({
+          user_id:           userId,
+          customer_name:     (fname + ' ' + lname).trim(),
+          customer_phone:    phone,
+          customer_email:    email || null,
+          customer_city:     city,
           customer_district: district,
-          customer_address: address,
-          items, total, notes,
-        });
+          customer_address:  address,
+          customer_notes:    notes || null,
+          items:             items,
+          subtotal:          sub,
+          discount:          disc,
+          total:             total,
+          status:            'pending',
+        }).select('order_number').single();
+
+        if (insertError) {
+          console.error('❌ Supabase insert error:', insertError.message, insertError.details);
+        } else {
+          finalNum = saved?.order_number || orderNum;
+          const numEl = document.getElementById('confirm-order-num');
+          if (numEl) numEl.textContent = finalNum;
+          console.log('✅ Saved to Supabase:', finalNum);
+        }
+      } else {
+        console.warn('⚠️ Supabase not ready');
       }
-    } catch(e) { console.warn('Supabase save error:', e); }
-  }, 100);
+    } catch(e) { console.error('❌ Supabase exception:', e); }
+
+    // ب) إرسال الإيميل دائماً
+    try {
+      if (window._sendOrderEmail) {
+        await window._sendOrderEmail({
+          order_number:      finalNum,
+          customer_name:     (fname + ' ' + lname).trim(),
+          customer_phone:    phone,
+          customer_city:     city,
+          customer_district: district,
+          customer_address:  address,
+          items:             items,
+          total:             total,
+          notes:             notes,
+        });
+      } else {
+        console.warn('⚠️ _sendOrderEmail غير جاهزة');
+      }
+    } catch(e) { console.error('❌ Email exception:', e); }
+  }, 300);
 }
 
 /* ── Orders History ── */
@@ -4898,21 +4931,31 @@ window.addEventListener('load', function() {
 
   window._sendOrderEmail = async function(order) {
     try {
+      if (typeof emailjs === 'undefined') {
+        console.error('❌ EmailJS library not loaded!');
+        return;
+      }
       const itemsText = (order.items||[])
-        .map(i=>`${i.emoji||'🛍️'} ${i.name} × ${i.qty} (${i.price} ج.م)`).join('\n');
-      await emailjs.send('service_mtprvpf','template_ng20c38',{
-        order_number:      order.order_number || '—',
-        customer_name:     order.customer_name || '—',
-        customer_phone:    order.customer_phone || '—',
-        customer_city:     order.customer_city || '—',
+        .map(i => (i.emoji||'🛍️') + ' ' + i.name + ' × ' + i.qty + ' (' + i.price + ' ج.م)').join('\n');
+
+      const templateParams = {
+        order_number:      order.order_number      || '—',
+        customer_name:     order.customer_name     || '—',
+        customer_phone:    order.customer_phone    || '—',
+        customer_city:     order.customer_city     || '—',
         customer_district: order.customer_district || '—',
-        customer_address:  order.customer_address || '—',
+        customer_address:  order.customer_address  || '—',
         items:             itemsText,
-        total:             order.total || '—',
-        notes:             order.notes || 'لا يوجد',
-      });
-      console.log('✅ Email sent');
-    } catch(e) { console.warn('Email error:', e); }
+        total:             order.total             || '—',
+        notes:             order.notes             || 'لا يوجد',
+      };
+
+      console.log('📧 Sending email with params:', templateParams);
+      const result = await emailjs.send('service_mtprvpf', 'template_ng20c38', templateParams);
+      console.log('✅ Email sent successfully! Status:', result.status, result.text);
+    } catch(e) {
+      console.error('❌ EmailJS error:', e.status, e.text, e);
+    }
   };
 
   console.log('✅ Supabase ready');
