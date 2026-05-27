@@ -4584,7 +4584,7 @@ function doLogin() {
 
   /* restore saved cart & wishlist */
   if (user.cart && user.cart.length)     { state.cart = user.cart; updateCartUI(); }
-  if (user.wishlist && user.wishlist.length) { state.wishlist = user.wishlist; updateWishlistUI(); }
+  if (user.wishlist && user.wishlist.length) { state.wishlist = user.wishlist; renderWishlistUI(); }
 
   onLogin(session);
   toast(`مرحباً ${user.name}! 👋`, 'success');
@@ -4605,7 +4605,7 @@ function doLogout() {
   }
   clearSession();
   state.cart = []; state.wishlist = [];
-  updateCartUI(); updateWishlistUI();
+  updateCartUI(); renderWishlistUI();
   onLogout();
   toggleUserDropdown(false);
   toast('تم تسجيل الخروج بنجاح 👋', 'gold');
@@ -4774,7 +4774,7 @@ window.addEventListener('load', function() {
       if (wish && wish.length && typeof state !== 'undefined') {
         const ids = wish.map(r => r.product_id);
         state.wishlist = PRODUCTS.filter(p => ids.includes(p.id));
-        if (typeof updateWishlistUI === 'function') updateWishlistUI();
+        if (typeof renderWishlistUI === 'function') renderWishlistUI();
       }
     } else {
       if (typeof onLogout === 'function') onLogout();
@@ -4838,7 +4838,7 @@ window.addEventListener('load', function() {
     await db.auth.signOut();
     if (typeof state !== 'undefined') { state.cart = []; state.wishlist = []; }
     if (typeof updateCartUI === 'function') updateCartUI();
-    if (typeof updateWishlistUI === 'function') updateWishlistUI();
+    if (typeof renderWishlistUI === 'function') renderWishlistUI();
     if (typeof toggleUserDropdown === 'function') toggleUserDropdown(false);
     if (typeof toast === 'function') toast('تم تسجيل الخروج 👋', 'gold');
   };
