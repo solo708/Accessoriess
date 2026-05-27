@@ -4961,5 +4961,97 @@ window.addEventListener('load', function() {
   console.log('✅ Supabase ready');
 });
 </script>
+
+<!-- ═══ DEBUG BUTTON (احذفه بعد التشخيص) ═══ -->
+<div id="debug-panel" style="position:fixed;bottom:80px;left:10px;z-index:99999;display:none">
+  <button onclick="runDebug()" style="background:#c9a84c;color:#000;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:bold;border:none">🔍 تشخيص</button>
+  <div id="debug-output" style="background:#111;color:#0f0;padding:10px;margin-top:6px;border-radius:8px;font-size:11px;max-width:320px;max-height:300px;overflow-y:auto;display:none;direction:ltr;font-family:monospace;white-space:pre-wrap;word-break:break-all"></div>
+</div>
+<script>
+// اظهر الزر لو في ?debug في الرابط
+if (window.location.search.includes('debug')) {
+  document.getElementById('debug-panel').style.display = 'block';
+}
+function debugLog(msg) {
+  var el = document.getElementById('debug-output');
+  el.style.display = 'block';
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+async function runDebug() {
+  var el = document.getElementById('debug-output');
+  el.textContent = '';
+  el.style.display = 'block';
+  debugLog('=== LUXE DEBUG ===');
+
+  // 1. تحقق Supabase
+  debugLog('1. _supaDB: ' + (window._supaDB ? 'OK' : 'MISSING'));
+
+  // 2. تحقق EmailJS
+  debugLog('2. emailjs: ' + (typeof emailjs !== 'undefined' ? 'OK' : 'MISSING'));
+
+  // 3. تحقق Auth
+  try {
+    var auth = await window._supaDB.auth.getUser();
+    debugLog('3. user: ' + (auth.data.user ? auth.data.user.email : 'NOT LOGGED IN'));
+  } catch(e) { debugLog('3. auth error: ' + e.message); }
+
+  // 4. اختبر insert طلب تجريبي
+  debugLog('4. Testing insert...');
+  try {
+    var res = await window._supaDB.from('orders').insert({
+      customer_name: 'TEST',
+      customer_phone: '01000000000',
+      customer_city: 'القاهرة',
+      customer_district: 'test',
+      customer_address: 'test address',
+      items: [],
+      subtotal: 0,
+      discount: 0,
+      total: 0,
+      status: 'pending'
+    }).select('order_number').single();
+    if (res.error) {
+      debugLog('4. INSERT ERROR:');
+      debugLog('   code: ' + res.error.code);
+      debugLog('   msg: ' + res.error.message);
+      debugLog('   hint: ' + res.error.hint);
+    } else {
+      debugLog('4. INSERT OK: ' + res.data.order_number);
+      // احذف الطلب التجريبي
+      await window._supaDB.from('orders').delete().eq('order_number', res.data.order_number);
+      debugLog('4. Test order deleted');
+    }
+  } catch(e) { debugLog('4. exception: ' + e.message); }
+
+  // 5. اختبر EmailJS
+  debugLog('5. Testing EmailJS...');
+  try {
+    if (typeof emailjs === 'undefined') {
+      debugLog('5. EmailJS NOT LOADED');
+    } else {
+      var eRes = await emailjs.send('service_mtprvpf','template_ng20c38',{
+        order_number: 'TEST-DEBUG',
+        customer_name: 'تشخيص',
+        customer_phone: '01000000000',
+        customer_city: 'القاهرة',
+        customer_district: 'test',
+        customer_address: 'test',
+        items: 'اختبار',
+        total: '0',
+        notes: 'رسالة تشخيص تلقائية',
+      });
+      debugLog('5. Email OK: ' + eRes.status + ' ' + eRes.text);
+    }
+  } catch(e) {
+    debugLog('5. Email ERROR:');
+    debugLog('   status: ' + (e.status||'?'));
+    debugLog('   text: ' + (e.text||e.message||JSON.stringify(e)));
+  }
+
+  debugLog('=== DONE ===');
+}
+</script>
+
 </body>
 </html>
