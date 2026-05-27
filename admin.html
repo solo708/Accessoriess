@@ -617,6 +617,11 @@
       <textarea class="form-textarea" id="p-desc" placeholder="وصف المنتج"></textarea>
     </div>
 
+    <div class="form-group">
+      <label class="form-label">رابط الصورة (Image URL)</label>
+      <input class="form-input" id="p-image-url" type="url" placeholder="https://...jpg">
+    </div>
+
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">السعر (ج.م) *</label>
@@ -638,6 +643,8 @@
           <option value="sunglasses">🕶️ نظارات</option>
           <option value="belts">👔 أحزمة</option>
           <option value="scarves">🧣 أوشحة</option>
+          <option value="wallets">👛 محافظ</option>
+          <option value="rings">💎 خواتم</option>
         </select>
       </div>
       <div class="form-group">
@@ -889,6 +896,7 @@ async function loadProducts() {
   document.getElementById('products-table').innerHTML = `
     <table>
       <thead><tr>
+        <th>الصورة</th>
         <th>المنتج</th>
         <th>الفئة</th>
         <th>السعر</th>
@@ -898,6 +906,7 @@ async function loadProducts() {
       </tr></thead>
       <tbody>${data.map(p => `
         <tr>
+          <td>${p.image_url ? `<img src="${p.image_url}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid rgba(201,168,76,0.2)">` : `<span style="font-size:1.8rem">${p.emoji||'🛍️'}</span>`}</td>
           <td>${p.emoji||'🛍️'} ${p.name_ar}</td>
           <td>${p.category_slug||'—'}</td>
           <td>${(+p.price).toLocaleString('ar-EG')} ج.م</td>
@@ -919,6 +928,7 @@ function openProductModal(product) {
   document.getElementById('p-name').value     = '';
   document.getElementById('p-emoji').value    = '';
   document.getElementById('p-desc').value     = '';
+  document.getElementById('p-image-url').value = '';
   document.getElementById('p-price').value    = '';
   document.getElementById('p-old-price').value= '';
   document.getElementById('p-stock').value    = '';
@@ -940,6 +950,7 @@ async function editProduct(id) {
   document.getElementById('p-name').value      = p.name_ar;
   document.getElementById('p-emoji').value     = p.emoji || '';
   document.getElementById('p-desc').value      = p.description_ar || '';
+  document.getElementById('p-image-url').value = p.image_url || '';
   document.getElementById('p-price').value     = p.price;
   document.getElementById('p-old-price').value = p.original_price || '';
   document.getElementById('p-cat').value       = p.category_slug || 'bags';
@@ -961,6 +972,7 @@ async function saveProduct() {
     name_ar:        name,
     emoji:          document.getElementById('p-emoji').value.trim() || '🛍️',
     description_ar: document.getElementById('p-desc').value.trim(),
+    image_url:      document.getElementById('p-image-url').value.trim() || null,
     price,
     original_price: +document.getElementById('p-old-price').value || null,
     category_slug:  document.getElementById('p-cat').value,
