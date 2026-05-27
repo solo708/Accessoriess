@@ -2575,7 +2575,7 @@ footer {
           </div>
           <button class="user-dd-item" onclick="openWishlist();toggleUserDropdown()">🤍 قائمة الأمنيات</button>
           <button class="user-dd-item" onclick="openCart();toggleUserDropdown()">🛒 سلة التسوق</button>
-          <button class="user-dd-item" onclick="openOrders();toggleUserDropdown()">📦 طلباتي</button>
+          <button class="user-dd-item" onclick="toggleUserDropdown(false);openOrders()">📦 طلباتي</button>
           <div class="user-dd-sep"></div>
           <button class="user-dd-item danger" onclick="doLogout()">🚪 تسجيل الخروج</button>
         </div>
@@ -3821,30 +3821,50 @@ function submitOrder() {
 }
 
 /* ── Orders History ── */
-function openOrders() {
-  const session = getSession();
-  if (!session) { openAuth('login'); return; }
-  const allOrders = getOrders();
-  // filter by user email
-  const myOrders = allOrders.filter(o => o.customer.email === session.email || !o.customer.email);
-  const list = document.getElementById('orders-list');
-  if (myOrders.length === 0) {
-    list.innerHTML = '<div class="orders-empty">📭 ما عندك طلبات بعد<br><span style="font-size:0.75rem;color:var(--text-dim);margin-top:0.5rem;display:block">ابدأ تسوق وارجع هنا!</span></div>';
-  } else {
-    list.innerHTML = myOrders.map(o => `
-      <div class="order-card">
-        <div class="order-card-head">
-          <span class="order-card-num"># ${o.id}</span>
-          <span class="order-card-date">${o.time}</span>
-        </div>
-        <div class="order-card-items">${o.items.map(i=>`${i.emoji} ${i.name} ×${i.qty}`).join(' · ')}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem">
-          <span class="order-card-total">${formatPrice(o.total)}</span>
-          <span class="order-card-status">${o.status || 'معلق'}</span>
-        </div>
-      </div>`).join('');
-  }
+async function openOrders() {
+  const SUPA_URL = 'https://idltyhrhulxsiradkxuv.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkbHR5aHJodWx4c2lyYWRreHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NzczNjEsImV4cCI6MjA5NTI1MzM2MX0.QJ521cjsHPqJ-JlVBhChx6Gj_xJNa57fS2iay0fDfSw';
+
+  if (typeof supabase === 'undefined') { openAuth('login'); return; }
+  const _db = supabase.createClient(SUPA_URL, SUPA_KEY);
+  const { data: { user } } = await _db.auth.getUser();
+  if (!user) { openAuth('login'); return; }
+
   document.getElementById('orders-backdrop').classList.add('open');
+  const list = document.getElementById('orders-list');
+  list.innerHTML = '<div class="orders-empty">⏳ جارٍ التحميل...</div>';
+
+  const { data: byId } = await _db.from('orders')
+    .select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+
+  const { data: byEmail } = await _db.from('orders')
+    .select('*').eq('customer_email', user.email)
+    .is('user_id', null).order('created_at', { ascending: false });
+
+  const allOrders = [...(byId || [])];
+  (byEmail || []).forEach(o => {
+    if (!allOrders.find(x => x.id === o.id)) allOrders.push(o);
+  });
+  allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  if (!allOrders.length) {
+    list.innerHTML = '<div class="orders-empty">📭 ما عندك طلبات بعد</div>';
+    return;
+  }
+
+  const st = { pending:'معلق', confirmed:'مؤكد', shipped:'قيد الشحن', delivered:'تم التوصيل', cancelled:'ملغي' };
+  list.innerHTML = allOrders.map(o => `
+    <div class="order-card">
+      <div class="order-card-head">
+        <span class="order-card-num"># ${o.order_number}</span>
+        <span class="order-card-date">${new Date(o.created_at).toLocaleDateString('ar-EG')}</span>
+      </div>
+      <div class="order-card-items">${(o.items||[]).map(i=>`${i.emoji||'🛍️'} ${i.name} ×${i.qty}`).join(' · ')}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem">
+        <span class="order-card-total">${typeof formatPrice==='function'?formatPrice(o.total):o.total+' ج.م'}</span>
+        <span class="order-card-status">${st[o.status]||o.status}</span>
+      </div>
+    </div>`).join('');
 }
 function closeOrders() { document.getElementById('orders-backdrop').classList.remove('open'); }
 document.getElementById('orders-backdrop').addEventListener('click', e => {
@@ -4563,16 +4583,15 @@ function doLogin() {
 }
 
 /* ── logout ── */
-function doLogout() {
-  const session = getSession();
-  if (session) {
-    /* save current cart & wishlist before logout */
-    const users = getUsers();
-    if (users[session.email]) {
-      users[session.email].cart     = state.cart;
-      users[session.email].wishlist = state.wishlist;
-      saveUsers(users);
-    }
+async function doLogout() {
+  if (typeof supabase !== 'undefined') {
+    try {
+      const _db = supabase.createClient(
+        'https://idltyhrhulxsiradkxuv.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkbHR5aHJodWx4c2lyYWRreHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NzczNjEsImV4cCI6MjA5NTI1MzM2MX0.QJ521cjsHPqJ-JlVBhChx6Gj_xJNa57fS2iay0fDfSw'
+      );
+      await _db.auth.signOut();
+    } catch(e) { console.warn('signOut error:', e); }
   }
   clearSession();
   state.cart = []; state.wishlist = [];
@@ -4810,17 +4829,7 @@ window.addEventListener('load', function() {
     if (typeof closeAuth === 'function') closeAuth();
   };
 
-  /* ══ تسجيل الخروج ══ */
-  window.doLogout = async function() {
-    await db.auth.signOut();
-    if (typeof state !== 'undefined') { state.cart = []; state.wishlist = []; }
-    if (typeof updateCartUI === 'function') updateCartUI();
-    if (typeof updateWishlistUI === 'function') updateWishlistUI();
-    if (typeof toggleUserDropdown === 'function') toggleUserDropdown(false);
-    if (typeof onLogout === 'function') onLogout();
-    if (typeof clearSession === 'function') clearSession();
-    if (typeof toast === 'function') toast('تم تسجيل الخروج 👋', 'gold');
-  };
+  /* ══ تسجيل الخروج — يتم التعامل معه في doLogout الرئيسية ══ */
 
   /* ══ مزامنة الأمنيات ══ */
   if (typeof toggleWishlist === 'function') {
@@ -4913,49 +4922,7 @@ window.addEventListener('load', function() {
     };
   }
 
-  /* ══ عرض الطلبات من Supabase ══ */
-  window.openOrders = async function() {
-    const { data: { user } } = await db.auth.getUser();
-    if (!user) { if (typeof openAuth === 'function') openAuth('login'); return; }
-
-    document.getElementById('orders-backdrop').classList.add('open');
-    const list = document.getElementById('orders-list');
-    list.innerHTML = '<div class="orders-empty">⏳ جارٍ التحميل...</div>';
-
-    // جيب الطلبات بالـ user_id أو بالإيميل
-    const { data: byId } = await db.from('orders')
-      .select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-
-    const { data: byEmail } = await db.from('orders')
-      .select('*').eq('customer_email', user.email)
-      .is('user_id', null).order('created_at', { ascending: false });
-
-    // ادمج وشيل المكرر
-    const allOrders = [...(byId || [])];
-    (byEmail || []).forEach(o => {
-      if (!allOrders.find(x => x.id === o.id)) allOrders.push(o);
-    });
-    allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    if (!allOrders.length) {
-      list.innerHTML = '<div class="orders-empty">📭 ما عندك طلبات بعد</div>';
-      return;
-    }
-
-    const st = { pending:'معلق', confirmed:'مؤكد', shipped:'قيد الشحن', delivered:'تم التوصيل', cancelled:'ملغي' };
-    list.innerHTML = allOrders.map(o => `
-      <div class="order-card">
-        <div class="order-card-head">
-          <span class="order-card-num"># ${o.order_number}</span>
-          <span class="order-card-date">${new Date(o.created_at).toLocaleDateString('ar-EG')}</span>
-        </div>
-        <div class="order-card-items">${(o.items||[]).map(i=>`${i.emoji||'🛍️'} ${i.name} ×${i.qty}`).join(' · ')}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem">
-          <span class="order-card-total">${typeof formatPrice==='function'?formatPrice(o.total):o.total+' ج.م'}</span>
-          <span class="order-card-status">${st[o.status]||o.status}</span>
-        </div>
-      </div>`).join('');
-  };
+  /* ══ عرض الطلبات — يتم التعامل معه في openOrders الرئيسية ══ */
 
   /* ══ EmailJS — إشعارات الطلبات ══ */
   emailjs.init('g-WwXl5g9gxxSUFBs');
