@@ -3783,43 +3783,73 @@ function submitOrder() {
   const address  = document.getElementById('ch-address').value.trim();
   const notes    = document.getElementById('ch-notes').value.trim();
   const sub      = state.cart.reduce((a,c) => a + c.price*c.qty, 0);
-  const disc     = state.promoApplied ? sub*0.1 : 0;
+  const disc     = state.promoApplied ? Math.round(sub*0.1) : 0;
   const total    = sub - disc;
   const items    = state.cart.map(i=>({id:i.id,name:i.name,emoji:i.emoji||'🛍️',price:i.price,qty:i.qty}));
 
   const btn = document.getElementById('ch-submit-btn');
   btn.disabled = true; btn.textContent = '⏳ جارٍ الحفظ...';
 
-  // حفظ في localStorage كاحتياط
-  const orderNum  = 'LX' + Date.now().toString().slice(-6);
-  const orderTime = new Date().toLocaleString('ar-EG', { dateStyle:'short', timeStyle:'short' });
-  const order = {
-    id: orderNum, time: orderTime, timestamp: Date.now(),
-    customer: { name:`${fname} ${lname}`, phone, email, district, city, address, notes },
-    items, total, disc, status:'معلق'
-  };
-  const orders = getOrders(); orders.unshift(order); saveOrders(orders);
+  // حفظ في Supabase مباشرةً
+  (async () => {
+    let orderNum = 'LX' + Date.now().toString().slice(-6);
+    try {
+      const db     = window._supaDB;
+      const user   = db ? (await db.auth.getUser()).data?.user : null;
 
-  setTimeout(() => {
+      if (db) {
+        const { data: saved, error } = await db.from('orders').insert({
+          user_id:           user?.id || null,
+          customer_name:     `${fname} ${lname}`.trim(),
+          customer_phone:    phone,
+          customer_email:    email || null,
+          customer_city:     city,
+          customer_district: district,
+          customer_address:  address,
+          customer_notes:    notes || null,
+          items,
+          subtotal:          sub,
+          discount:          disc,
+          total,
+          status:            'pending',
+        }).select().single();
+
+        if (saved) orderNum = saved.order_number;
+        if (error) console.warn('Supabase insert error:', error.message);
+      }
+    } catch(e) { console.warn('Order save error:', e); }
+
+    // احتياط: حفظ في localStorage
+    const orderTime = new Date().toLocaleString('ar-EG', { dateStyle:'short', timeStyle:'short' });
+    const order = { id:orderNum, time:orderTime, timestamp:Date.now(),
+      customer:{name:`${fname} ${lname}`,phone,email,district,city,address,notes},
+      items, total, disc, status:'معلق' };
+    const orders = getOrders(); orders.unshift(order); saveOrders(orders);
+
+    // إرسال إيميل
+    if (window._sendOrderEmail) {
+      window._sendOrderEmail({ order_number:orderNum, customer_name:`${fname} ${lname}`,
+        customer_phone:phone, customer_city:city, customer_district:district,
+        customer_address:address, items, total, notes });
+    }
+
     // شاشة التأكيد
     document.getElementById('checkout-form-body').style.display = 'none';
     document.getElementById('confirm-order-num').textContent = orderNum;
     document.getElementById('confirm-subtitle').textContent =
-      `شكراً ${fname}! تم استلام طلبك بنجاح. سيتم التواصل معك خلال 24 ساعة لتأكيد التوصيل.`;
+      `شكراً ${fname}! تم استلام طلبك بنجاح. سيتم التواصل معك خلال 24 ساعة.`;
     document.getElementById('confirm-details').innerHTML = `
       <div class="confirm-detail-row"><span class="key">العميل</span><span class="val">${fname} ${lname}</span></div>
       <div class="confirm-detail-row"><span class="key">الهاتف</span><span class="val">${phone}</span></div>
       <div class="confirm-detail-row"><span class="key">المدينة</span><span class="val">${city}، ${district}</span></div>
-      <div class="confirm-detail-row"><span class="key">عدد المنتجات</span><span class="val">${state.cart.reduce((a,c)=>a+c.qty,0)} قطعة</span></div>
+      <div class="confirm-detail-row"><span class="key">عدد المنتجات</span><span class="val">${items.reduce((a,c)=>a+c.qty,0)} قطعة</span></div>
       <div class="confirm-detail-row"><span class="key">الإجمالي</span><span class="val gold">${formatPrice(total)}</span></div>
     `;
     document.getElementById('order-confirm').classList.add('show');
-
-    // مسح السلة
     state.cart = []; state.promoApplied = false;
     updateCartUI(); persistUserData();
     btn.disabled = false; btn.textContent = '✅ تأكيد الطلب';
-  }, 600);
+  })();
 }
 
 /* ── Orders History ── */
@@ -4817,6 +4847,7 @@ window.addEventListener('load', function() {
   };
 
   /* ══ مزامنة الأمنيات ══ */
+  /* ══ مزامنة الأمنيات ══ */
   if (typeof toggleWishlist === 'function') {
     const _orig = toggleWishlist;
     window.toggleWishlist = async function(id, e) {
@@ -4829,65 +4860,6 @@ window.addEventListener('load', function() {
       } else {
         await db.from('wishlist').insert({ user_id: user.id, product_id: id });
       }
-    };
-  }
-
-  /* ══ حفظ الطلبات في Supabase + إرسال الإيميل ══ */
-  if (typeof submitOrder === 'function') {
-    const _orig = submitOrder;
-    window.submitOrder = async function() {
-      // شغّل الدالة الأصلية (تتحقق من الفورم وتعرض شاشة التأكيد)
-      _orig();
-
-      // انتظر قليلاً ثم احفظ في Supabase
-      setTimeout(async () => {
-        try {
-          const orders = typeof getOrders === 'function' ? getOrders() : [];
-          if (!orders.length) return;
-          const o = orders[0];
-
-          const { data: { user } } = await db.auth.getUser();
-
-          const { data: saved } = await db.from('orders').insert({
-            user_id:           user?.id || null,
-            customer_name:     o.customer?.name || '',
-            customer_phone:    o.customer?.phone || '',
-            customer_email:    o.customer?.email || null,
-            customer_city:     o.customer?.city || '',
-            customer_district: o.customer?.district || '',
-            customer_address:  o.customer?.address || '',
-            customer_notes:    o.customer?.notes || null,
-            items:             o.items || [],
-            subtotal:          o.total || 0,
-            discount:          o.disc || 0,
-            total:             o.total || 0,
-            status:            'pending',
-          }).select().single();
-
-          const orderNum = saved?.order_number || o.id;
-
-          // تحديث رقم الطلب في شاشة التأكيد
-          const numEl = document.getElementById('confirm-order-num');
-          if (numEl) numEl.textContent = orderNum;
-
-          // إرسال إيميل الإشعار
-          await sendOrderEmail({
-            order_number:      orderNum,
-            customer_name:     o.customer?.name || '',
-            customer_phone:    o.customer?.phone || '',
-            customer_city:     o.customer?.city || '',
-            customer_district: o.customer?.district || '',
-            customer_address:  o.customer?.address || '',
-            items:             o.items || [],
-            total:             o.total || 0,
-            notes:             o.customer?.notes || '',
-          });
-
-          console.log('✅ Order saved & email sent:', orderNum);
-        } catch(e) {
-          console.warn('⚠️ Supabase/Email error:', e);
-        }
-      }, 800);
     };
   }
 
@@ -4923,31 +4895,28 @@ window.addEventListener('load', function() {
       </div>`).join('');
   };
 
-  /* ══ EmailJS — إشعارات الطلبات ══ */
+  /* ══ EmailJS + db على window عشان submitOrder يستخدمهم ══ */
+  window._supaDB = db;
   emailjs.init('g-WwXl5g9gxxSUFBs');
 
-  async function sendOrderEmail(order) {
+  window._sendOrderEmail = async function(order) {
     try {
-      const itemsText = (order.items || [])
-        .map(i => `${i.emoji || '🛍️'} ${i.name} × ${i.qty} (${i.price} ج.م)`)
-        .join('\n');
-
-      await emailjs.send('service_mtprvpf', 'template_ng20c38', {
+      const itemsText = (order.items||[])
+        .map(i=>`${i.emoji||'🛍️'} ${i.name} × ${i.qty} (${i.price} ج.م)`).join('\n');
+      await emailjs.send('service_mtprvpf','template_ng20c38',{
         order_number:      order.order_number || '—',
-        customer_name:     order.customer?.name || order.customer_name || '—',
-        customer_phone:    order.customer?.phone || order.customer_phone || '—',
-        customer_city:     order.customer?.city || order.customer_city || '—',
-        customer_district: order.customer?.district || order.customer_district || '—',
-        customer_address:  order.customer?.address || order.customer_address || '—',
+        customer_name:     order.customer_name || '—',
+        customer_phone:    order.customer_phone || '—',
+        customer_city:     order.customer_city || '—',
+        customer_district: order.customer_district || '—',
+        customer_address:  order.customer_address || '—',
         items:             itemsText,
         total:             order.total || '—',
-        notes:             order.customer?.notes || order.customer_notes || 'لا يوجد',
+        notes:             order.notes || 'لا يوجد',
       });
-      console.log('✅ تم إرسال إشعار الطلب بالإيميل');
-    } catch(e) {
-      console.warn('⚠️ فشل إرسال الإيميل:', e);
-    }
-  }
+      console.log('✅ Email sent');
+    } catch(e) { console.warn('Email error:', e); }
+  };
 
   console.log('✅ Supabase ready');
 });
