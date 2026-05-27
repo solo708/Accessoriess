@@ -769,14 +769,18 @@ function toggleSidebar() {
 
 /* ══ Dashboard ══ */
 async function loadDashboard() {
-  const [ordersRes, productsRes, customersRes] = await Promise.all([
-    db.from('orders').select('total, status, order_number, customer_name, created_at', { count: 'exact' }),
+  const [ordersRes, productsRes, customersRes, recentRes] = await Promise.all([
+    db.from('orders').select('total, status', { count: 'exact' }),
     db.from('products').select('id', { count: 'exact' }),
     db.from('profiles').select('id', { count: 'exact' }),
+    db.from('orders')
+      .select('total, status, order_number, customer_name, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5),
   ]);
 
-  const orders   = ordersRes.data || [];
-  const revenue  = orders.reduce((s, o) => s + (+o.total || 0), 0);
+  const orders  = ordersRes.data || [];
+  const revenue = orders.reduce((s, o) => s + (+o.total || 0), 0);
 
   document.getElementById('stat-orders').textContent    = ordersRes.count || 0;
   document.getElementById('stat-revenue').textContent   = revenue.toLocaleString('ar-EG') + ' ج.م';
@@ -784,7 +788,7 @@ async function loadDashboard() {
   document.getElementById('stat-customers').textContent = customersRes.count || 0;
 
   // آخر 5 طلبات
-  const recent = orders.slice(-5).reverse();
+  const recent = recentRes.data || [];
   if (!recent.length) {
     document.getElementById('recent-orders-table').innerHTML =
       '<div class="empty"><div class="empty-icon">📭</div>لا توجد طلبات بعد</div>';
@@ -812,7 +816,7 @@ async function loadOrders() {
   document.getElementById('orders-table').innerHTML = '<div class="loading">⏳ جارٍ التحميل...</div>';
   const status = document.getElementById('filter-status').value;
 
-  let q = db.from('orders').select('*').order('created_at', { ascending: false });
+  let q = db.from('orders').select('*').order('created_at', { ascending: false }).limit(1000);
   if (status) q = q.eq('status', status);
 
   const { data, error } = await q;
