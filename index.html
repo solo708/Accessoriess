@@ -4874,12 +4874,16 @@ document.addEventListener('DOMContentLoaded', function() {
         price: +p.price,
         oldPrice: p.original_price ? +p.original_price : null,
         rating: +p.rating || 4.5, reviews: p.reviews_count || 0,
-        colors: (p.colors && Array.isArray(p.colors) && p.colors.length) ? p.colors
-               : (p.colors_json ? (()=>{try{return JSON.parse(p.colors_json);}catch{return ['أسود','ذهبي'];}})() )
-               : ['أسود','ذهبي'],
-        sizes: (p.sizes && Array.isArray(p.sizes) && p.sizes.length) ? p.sizes
-               : (p.sizes_json ? (()=>{try{return JSON.parse(p.sizes_json);}catch{return null;}})() )
-               : null,
+        colors: (function(){
+          if (p.colors && Array.isArray(p.colors) && p.colors.length) return p.colors;
+          if (p.colors_json) { try { var c = JSON.parse(p.colors_json); if (c && c.length) return c; } catch(e){} }
+          return ['أسود','ذهبي'];
+        })(),
+        sizes: (function(){
+          if (p.sizes && Array.isArray(p.sizes) && p.sizes.length) return p.sizes;
+          if (p.sizes_json) { try { var s = JSON.parse(p.sizes_json); if (s && s.length) return s; } catch(e){} }
+          return null;
+        })(),
         badge: p.badge || (p.is_new ? 'new' : (p.original_price ? 'sale' : null)),
         inStock: p.stock > 0, desc: p.description_ar || '', stock: p.stock,
       }));
