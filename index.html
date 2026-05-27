@@ -2259,6 +2259,7 @@ footer {
 }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -4887,6 +4888,9 @@ window.addEventListener('load', function() {
             subtotal: o.total || 0,
             total:    o.total || 0,
           });
+
+          // إرسال إشعار الإيميل
+          await sendOrderEmail(o);
           console.log('✅ Order saved to Supabase');
         } catch(e) { console.warn('Order sync failed:', e); }
       }, 1000);
@@ -4924,6 +4928,32 @@ window.addEventListener('load', function() {
         </div>
       </div>`).join('');
   };
+
+  /* ══ EmailJS — إشعارات الطلبات ══ */
+  emailjs.init('g-WwXl5g9gxxSUFBs');
+
+  async function sendOrderEmail(order) {
+    try {
+      const itemsText = (order.items || [])
+        .map(i => `${i.emoji || '🛍️'} ${i.name} × ${i.qty} (${i.price} ج.م)`)
+        .join('\n');
+
+      await emailjs.send('service_mtprvpf', 'template_ng20c38', {
+        order_number:      order.order_number || '—',
+        customer_name:     order.customer?.name || order.customer_name || '—',
+        customer_phone:    order.customer?.phone || order.customer_phone || '—',
+        customer_city:     order.customer?.city || order.customer_city || '—',
+        customer_district: order.customer?.district || order.customer_district || '—',
+        customer_address:  order.customer?.address || order.customer_address || '—',
+        items:             itemsText,
+        total:             order.total || '—',
+        notes:             order.customer?.notes || order.customer_notes || 'لا يوجد',
+      });
+      console.log('✅ تم إرسال إشعار الطلب بالإيميل');
+    } catch(e) {
+      console.warn('⚠️ فشل إرسال الإيميل:', e);
+    }
+  }
 
   console.log('✅ Supabase ready');
 });
