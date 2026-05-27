@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUXE — لوحة التحكم</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #E8C96A;
+    --bg: #0A0A0A;
+    --surface: #141414;
+    --surface2: #1E1E1E;
+    --border: rgba(201,168,76,0.15);
+    --text: #F5F0E8;
+    --text-dim: #8A8070;
+    --green: #2ECC71;
+    --red: #E74C3C;
+    --blue: #3498DB;
+    --orange: #E67E22;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ══ Login Screen ══ */
+  #login-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at center, #1a1500 0%, #0A0A0A 70%);
+  }
+
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2.5rem;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+  }
+
+  .login-logo {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    margin-bottom: 0.25rem;
+  }
+
+  .login-sub {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 2rem;
+  }
+
+  .login-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+    text-align: right;
+  }
+
+  .login-input:focus { outline: none; border-color: var(--gold); }
+
+  .login-btn {
+    width: 100%;
+    background: var(--gold);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    padding: 0.9rem;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .login-btn:hover { opacity: 0.9; }
+  .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .login-error {
+    color: var(--red);
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    display: none;
+  }
+
+  /* ══ Admin Layout ══ */
+  #admin-screen { display: none; }
+
+  .admin-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 100vh;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    padding: 1.5rem 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-logo {
+    text-align: center;
+    padding: 0 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+
+  .sidebar-logo-text {
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+  }
+
+  .sidebar-logo-sub {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-right: 3px solid transparent;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+
+  .nav-item:hover { background: rgba(201,168,76,0.05); color: var(--text); }
+  .nav-item.active { background: rgba(201,168,76,0.1); color: var(--gold); border-right-color: var(--gold); }
+  .nav-item .icon { font-size: 1.1rem; width: 24px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+  }
+
+  .admin-name {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+  }
+
+  .logout-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  .logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* Main Content */
+  .main {
+    padding: 2rem;
+    overflow-y: auto;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 1.5rem;
+  }
+
+  /* ══ Stats Cards ══ */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+  }
+
+  .stat-icon { font-size: 1.75rem; margin-bottom: 0.5rem; }
+  .stat-num { font-size: 1.8rem; font-weight: 700; color: var(--gold); }
+  .stat-label { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.2rem; }
+
+  /* ══ Tables ══ */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table-title { font-weight: 600; font-size: 0.95rem; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    background: var(--surface2);
+    padding: 0.75rem 1rem;
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  td {
+    padding: 0.85rem 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.88rem;
+  }
+
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* ══ Badges ══ */
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-pending  { background: rgba(230,126,34,0.2);  color: var(--orange); }
+  .badge-confirmed{ background: rgba(52,152,219,0.2);  color: var(--blue); }
+  .badge-shipped  { background: rgba(155,89,182,0.2);  color: #9B59B6; }
+  .badge-delivered{ background: rgba(46,204,113,0.2);  color: var(--green); }
+  .badge-cancelled{ background: rgba(231,76,60,0.2);   color: var(--red); }
+  .badge-active   { background: rgba(46,204,113,0.2);  color: var(--green); }
+  .badge-inactive { background: rgba(231,76,60,0.2);   color: var(--red); }
+
+  /* ══ Buttons ══ */
+  .btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn-gold  { background: var(--gold); color: #000; }
+  .btn-red   { background: rgba(231,76,60,0.2); color: var(--red); border: 1px solid rgba(231,76,60,0.3); }
+  .btn-blue  { background: rgba(52,152,219,0.2); color: var(--blue); border: 1px solid rgba(52,152,219,0.3); }
+  .btn-sm    { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+
+  /* ══ Modal ══ */
+  .modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .modal-bg.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1.75rem;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 1.25rem;
+  }
+
+  .form-group { margin-bottom: 1rem; }
+
+  .form-label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 0.4rem;
+  }
+
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.9rem;
+    text-align: right;
+  }
+
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
+
+  .form-textarea { resize: vertical; min-height: 80px; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+  .modal-footer {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    justify-content: flex-end;
+  }
+
+  .btn-cancel {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  /* ══ Empty State ══ */
+  .empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+
+  .empty .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+  /* ══ Loading ══ */
+  .loading { text-align: center; padding: 2rem; color: var(--text-dim); }
+
+  /* ══ Toast ══ */
+  #admin-toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+    transition: transform 0.3s;
+    z-index: 9999;
+    white-space: nowrap;
+  }
+
+  #admin-toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ══ Status Select ══ */
+  .status-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.3rem 0.5rem;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  /* Mobile */
+  @media(max-width: 768px) {
+    .admin-layout { grid-template-columns: 1fr; }
+    .sidebar {
+      position: fixed;
+      right: -220px;
+      top: 0;
+      z-index: 100;
+      height: 100vh;
+      transition: right 0.3s;
+    }
+    .sidebar.open { right: 0; }
+    .mobile-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .menu-btn {
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    .main { padding: 1rem; }
+    .form-row { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    th:nth-child(n+4), td:nth-child(n+4) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">LUXE</div>
+    <div class="login-sub">لوحة التحكم — المدير فقط</div>
+    <input class="login-input" id="l-email" type="email" placeholder="البريد الإلكتروني">
+    <input class="login-input" id="l-pass" type="password" placeholder="كلمة المرور">
+    <button class="login-btn" id="l-btn" onclick="adminLogin()">دخول</button>
+    <div class="login-error" id="l-err"></div>
+  </div>
+</div>
+
+<!-- Admin -->
+<div id="admin-screen">
+  <!-- Mobile Header -->
+  <div class="mobile-header" style="display:none" id="mob-header">
+    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+    <span style="color:var(--gold);font-weight:700;letter-spacing:0.1em">LUXE ADMIN</span>
+    <span></span>
+  </div>
+
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-text">LUXE</div>
+        <div class="sidebar-logo-sub">لوحة التحكم</div>
+      </div>
+
+      <nav>
+        <div class="nav-item active" onclick="showPage('dashboard')">
+          <span class="icon">📊</span> الرئيسية
+        </div>
+        <div class="nav-item" onclick="showPage('orders')">
+          <span class="icon">📦</span> الطلبات
+        </div>
+        <div class="nav-item" onclick="showPage('products')">
+          <span class="icon">🛍️</span> المنتجات
+        </div>
+        <div class="nav-item" onclick="showPage('customers')">
+          <span class="icon">👥</span> العملاء
+        </div>
+      </nav>
+
+      <div class="sidebar-footer" style="position:absolute;bottom:0;width:100%;background:var(--surface)">
+        <div class="admin-name" id="admin-name-display">مرحباً</div>
+        <button class="logout-btn" onclick="adminLogout()">🚪 تسجيل الخروج</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+
+      <!-- Dashboard -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-title">📊 نظرة عامة</div>
+
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-num" id="stat-orders">—</div>
+            <div class="stat-label">إجمالي الطلبات</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-num" id="stat-revenue">—</div>
+            <div class="stat-label">إجمالي المبيعات</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🛍️</div>
+            <div class="stat-num" id="stat-products">—</div>
+            <div class="stat-label">المنتجات</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-num" id="stat-customers">—</div>
+            <div class="stat-label">العملاء</div>
+          </div>
+        </div>
+
+        <!-- Recent Orders -->
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">آخر الطلبات</span>
+            <button class="btn btn-gold btn-sm" onclick="showPage('orders')">عرض الكل</button>
+          </div>
+          <div id="recent-orders-table"><div class="loading">⏳ جارٍ التحميل...</div></div>
+        </div>
+      </div>
+
+      <!-- Orders -->
+      <div class="page" id="page-orders">
+        <div class="page-title">📦 الطلبات</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title" id="orders-count">الطلبات</span>
+            <select class="status-select" id="filter-status" onchange="loadOrders()">
+              <option value="">كل الطلبات</option>
+              <option value="pending">معلقة</option>
+              <option value="confirmed">مؤكدة</option>
+              <option value="shipped">قيد الشحن</option>
+              <option value="delivered">تم التوصيل</option>
+              <option value="cancelled">ملغية</option>
+            </select>
+          </div>
+          <div id="orders-table"><div class="loading">⏳ جارٍ التحميل...</div></div>
+        </div>
+      </div>
+
+      <!-- Products -->
+      <div class="page" id="page-products">
+        <div class="page-title">🛍️ المنتجات</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title" id="products-count">المنتجات</span>
+            <button class="btn btn-gold" onclick="openProductModal()">+ إضافة منتج</button>
+          </div>
+          <div id="products-table"><div class="loading">⏳ جارٍ التحميل...</div></div>
+        </div>
+      </div>
+
+      <!-- Customers -->
+      <div class="page" id="page-customers">
+        <div class="page-title">👥 العملاء</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title" id="customers-count">العملاء</span>
+          </div>
+          <div id="customers-table"><div class="loading">⏳ جارٍ التحميل...</div></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Product Modal -->
+<div class="modal-bg" id="product-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">إضافة منتج جديد</div>
+
+    <input type="hidden" id="p-id">
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">اسم المنتج *</label>
+        <input class="form-input" id="p-name" placeholder="اسم المنتج بالعربي">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الإيموجي</label>
+        <input class="form-input" id="p-emoji" placeholder="👜">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">الوصف</label>
+      <textarea class="form-textarea" id="p-desc" placeholder="وصف المنتج"></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">السعر (ج.م) *</label>
+        <input class="form-input" id="p-price" type="number" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">السعر قبل الخصم</label>
+        <input class="form-input" id="p-old-price" type="number" placeholder="0">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">الفئة *</label>
+        <select class="form-select" id="p-cat">
+          <option value="bags">👜 حقائب</option>
+          <option value="watches">⌚ ساعات</option>
+          <option value="jewelry">💍 مجوهرات</option>
+          <option value="sunglasses">🕶️ نظارات</option>
+          <option value="belts">👔 أحزمة</option>
+          <option value="scarves">🧣 أوشحة</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">المخزون *</label>
+        <input class="form-input" id="p-stock" type="number" placeholder="0">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" id="p-featured" style="margin-left:0.4rem">
+          مميز (Featured)
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" id="p-new" style="margin-left:0.4rem">
+          جديد (New)
+        </label>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeProductModal()">إلغاء</button>
+      <button class="btn btn-gold" onclick="saveProduct()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="admin-toast"></div>
+
+<script>
+const SUPA_URL = 'https://idltyhrhulxsiradkxuv.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkbHR5aHJodWx4c2lyYWRreHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NzczNjEsImV4cCI6MjA5NTI1MzM2MX0.QJ521cjsHPqJ-JlVBhChx6Gj_xJNa57fS2iay0fDfSw';
+const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const STATUS_AR = {
+  pending:'معلق', confirmed:'مؤكد',
+  shipped:'قيد الشحن', delivered:'تم التوصيل', cancelled:'ملغي'
+};
+
+/* ══ Toast ══ */
+function toast(msg) {
+  const t = document.getElementById('admin-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+/* ══ Login ══ */
+async function adminLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  const btn   = document.getElementById('l-btn');
+  const err   = document.getElementById('l-err');
+
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = '⏳ جارٍ التحقق...';
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
+
+  if (error) {
+    err.textContent = '⚠️ البريد أو كلمة المرور غير صحيحة';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'دخول';
+    return;
+  }
+
+  // تحقق من صلاحية Admin
+  const { data: profile } = await db.from('profiles')
+    .select('is_admin, full_name').eq('id', data.user.id).single();
+
+  if (!profile || !profile.is_admin) {
+    await db.auth.signOut();
+    err.textContent = '⛔ ليس لديك صلاحية الوصول';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'دخول';
+    return;
+  }
+
+  const name = profile.full_name || email.split('@')[0];
+  document.getElementById('admin-name-display').textContent = 'مرحباً، ' + name;
+  showAdminPanel();
+  loadDashboard();
+}
+
+document.getElementById('l-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') adminLogin();
+});
+
+async function adminLogout() {
+  await db.auth.signOut();
+  document.getElementById('admin-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function showAdminPanel() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-screen').style.display = 'block';
+  if (window.innerWidth <= 768) {
+    document.getElementById('mob-header').style.display = 'flex';
+  }
+}
+
+/* ══ Navigation ══ */
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  event.currentTarget.classList.add('active');
+
+  if (page === 'orders')    loadOrders();
+  if (page === 'products')  loadProducts();
+  if (page === 'customers') loadCustomers();
+
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+  }
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+/* ══ Dashboard ══ */
+async function loadDashboard() {
+  const [ordersRes, productsRes, customersRes] = await Promise.all([
+    db.from('orders').select('total, status, order_number, customer_name, created_at', { count: 'exact' }),
+    db.from('products').select('id', { count: 'exact' }),
+    db.from('profiles').select('id', { count: 'exact' }),
+  ]);
+
+  const orders   = ordersRes.data || [];
+  const revenue  = orders.reduce((s, o) => s + (+o.total || 0), 0);
+
+  document.getElementById('stat-orders').textContent    = ordersRes.count || 0;
+  document.getElementById('stat-revenue').textContent   = revenue.toLocaleString('ar-EG') + ' ج.م';
+  document.getElementById('stat-products').textContent  = productsRes.count || 0;
+  document.getElementById('stat-customers').textContent = customersRes.count || 0;
+
+  // آخر 5 طلبات
+  const recent = orders.slice(-5).reverse();
+  if (!recent.length) {
+    document.getElementById('recent-orders-table').innerHTML =
+      '<div class="empty"><div class="empty-icon">📭</div>لا توجد طلبات بعد</div>';
+    return;
+  }
+
+  document.getElementById('recent-orders-table').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>رقم الطلب</th><th>العميل</th><th>المبلغ</th><th>الحالة</th>
+      </tr></thead>
+      <tbody>${recent.map(o => `
+        <tr>
+          <td>${o.order_number}</td>
+          <td>${o.customer_name}</td>
+          <td>${(+o.total).toLocaleString('ar-EG')} ج.م</td>
+          <td><span class="badge badge-${o.status}">${STATUS_AR[o.status]||o.status}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+/* ══ Orders ══ */
+async function loadOrders() {
+  document.getElementById('orders-table').innerHTML = '<div class="loading">⏳ جارٍ التحميل...</div>';
+  const status = document.getElementById('filter-status').value;
+
+  let q = db.from('orders').select('*').order('created_at', { ascending: false });
+  if (status) q = q.eq('status', status);
+
+  const { data, error } = await q;
+  if (error || !data) {
+    document.getElementById('orders-table').innerHTML = '<div class="empty">⚠️ خطأ في التحميل</div>';
+    return;
+  }
+
+  document.getElementById('orders-count').textContent = `الطلبات (${data.length})`;
+
+  if (!data.length) {
+    document.getElementById('orders-table').innerHTML =
+      '<div class="empty"><div class="empty-icon">📭</div>لا توجد طلبات</div>';
+    return;
+  }
+
+  document.getElementById('orders-table').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>رقم الطلب</th>
+        <th>العميل</th>
+        <th>الهاتف</th>
+        <th>المبلغ</th>
+        <th>الحالة</th>
+        <th>التاريخ</th>
+      </tr></thead>
+      <tbody>${data.map(o => `
+        <tr>
+          <td><strong>${o.order_number}</strong></td>
+          <td>${o.customer_name}<br><small style="color:var(--text-dim)">${o.customer_city} - ${o.customer_district}</small></td>
+          <td>${o.customer_phone}</td>
+          <td>${(+o.total).toLocaleString('ar-EG')} ج.م</td>
+          <td>
+            <select class="status-select" onchange="updateOrderStatus('${o.id}', this.value)">
+              ${['pending','confirmed','shipped','delivered','cancelled'].map(s =>
+                `<option value="${s}" ${o.status===s?'selected':''}>${STATUS_AR[s]}</option>`
+              ).join('')}
+            </select>
+          </td>
+          <td>${new Date(o.created_at).toLocaleDateString('ar-EG')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function updateOrderStatus(id, status) {
+  const { error } = await db.from('orders').update({ status }).eq('id', id);
+  if (error) { toast('⚠️ خطأ في التحديث'); return; }
+  toast('✅ تم تحديث الحالة');
+}
+
+/* ══ Products ══ */
+async function loadProducts() {
+  document.getElementById('products-table').innerHTML = '<div class="loading">⏳ جارٍ التحميل...</div>';
+
+  const { data, error } = await db.from('products').select('*').order('id');
+  if (error || !data) {
+    document.getElementById('products-table').innerHTML = '<div class="empty">⚠️ خطأ في التحميل</div>';
+    return;
+  }
+
+  document.getElementById('products-count').textContent = `المنتجات (${data.length})`;
+
+  if (!data.length) {
+    document.getElementById('products-table').innerHTML =
+      '<div class="empty"><div class="empty-icon">🛍️</div>لا توجد منتجات</div>';
+    return;
+  }
+
+  document.getElementById('products-table').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>المنتج</th>
+        <th>الفئة</th>
+        <th>السعر</th>
+        <th>المخزون</th>
+        <th>الحالة</th>
+        <th>إجراءات</th>
+      </tr></thead>
+      <tbody>${data.map(p => `
+        <tr>
+          <td>${p.emoji||'🛍️'} ${p.name_ar}</td>
+          <td>${p.category_slug||'—'}</td>
+          <td>${(+p.price).toLocaleString('ar-EG')} ج.م</td>
+          <td>${p.stock}</td>
+          <td><span class="badge badge-${p.is_active?'active':'inactive'}">${p.is_active?'نشط':'مخفي'}</span></td>
+          <td style="display:flex;gap:0.4rem">
+            <button class="btn btn-blue btn-sm" onclick="editProduct(${p.id})">✏️</button>
+            <button class="btn btn-red btn-sm" onclick="toggleProduct(${p.id}, ${p.is_active})">${p.is_active?'🙈':'👁️'}</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+/* Product Modal */
+function openProductModal(product) {
+  document.getElementById('modal-title').textContent = 'إضافة منتج جديد';
+  document.getElementById('p-id').value       = '';
+  document.getElementById('p-name').value     = '';
+  document.getElementById('p-emoji').value    = '';
+  document.getElementById('p-desc').value     = '';
+  document.getElementById('p-price').value    = '';
+  document.getElementById('p-old-price').value= '';
+  document.getElementById('p-stock').value    = '';
+  document.getElementById('p-featured').checked = false;
+  document.getElementById('p-new').checked      = false;
+  document.getElementById('product-modal').classList.add('open');
+}
+
+function closeProductModal() {
+  document.getElementById('product-modal').classList.remove('open');
+}
+
+async function editProduct(id) {
+  const { data: p } = await db.from('products').select('*').eq('id', id).single();
+  if (!p) return;
+
+  document.getElementById('modal-title').textContent = 'تعديل المنتج';
+  document.getElementById('p-id').value        = p.id;
+  document.getElementById('p-name').value      = p.name_ar;
+  document.getElementById('p-emoji').value     = p.emoji || '';
+  document.getElementById('p-desc').value      = p.description_ar || '';
+  document.getElementById('p-price').value     = p.price;
+  document.getElementById('p-old-price').value = p.original_price || '';
+  document.getElementById('p-cat').value       = p.category_slug || 'bags';
+  document.getElementById('p-stock').value     = p.stock;
+  document.getElementById('p-featured').checked = p.is_featured;
+  document.getElementById('p-new').checked      = p.is_new;
+  document.getElementById('product-modal').classList.add('open');
+}
+
+async function saveProduct() {
+  const id    = document.getElementById('p-id').value;
+  const name  = document.getElementById('p-name').value.trim();
+  const price = +document.getElementById('p-price').value;
+
+  if (!name)  { toast('⚠️ أدخل اسم المنتج'); return; }
+  if (!price) { toast('⚠️ أدخل السعر'); return; }
+
+  const payload = {
+    name_ar:        name,
+    emoji:          document.getElementById('p-emoji').value.trim() || '🛍️',
+    description_ar: document.getElementById('p-desc').value.trim(),
+    price,
+    original_price: +document.getElementById('p-old-price').value || null,
+    category_slug:  document.getElementById('p-cat').value,
+    stock:          +document.getElementById('p-stock').value || 0,
+    is_featured:    document.getElementById('p-featured').checked,
+    is_new:         document.getElementById('p-new').checked,
+    is_active:      true,
+  };
+
+  let error;
+  if (id) {
+    ({ error } = await db.from('products').update(payload).eq('id', id));
+  } else {
+    ({ error } = await db.from('products').insert(payload));
+  }
+
+  if (error) { toast('⚠️ خطأ: ' + error.message); return; }
+
+  toast(id ? '✅ تم تعديل المنتج' : '✅ تم إضافة المنتج');
+  closeProductModal();
+  loadProducts();
+}
+
+async function toggleProduct(id, isActive) {
+  const { error } = await db.from('products').update({ is_active: !isActive }).eq('id', id);
+  if (error) { toast('⚠️ خطأ في التحديث'); return; }
+  toast(isActive ? '🙈 تم إخفاء المنتج' : '👁️ تم إظهار المنتج');
+  loadProducts();
+}
+
+/* ══ Customers ══ */
+async function loadCustomers() {
+  document.getElementById('customers-table').innerHTML = '<div class="loading">⏳ جارٍ التحميل...</div>';
+
+  const { data, error } = await db.from('profiles').select('*').order('created_at', { ascending: false });
+  if (error || !data) {
+    document.getElementById('customers-table').innerHTML = '<div class="empty">⚠️ خطأ في التحميل</div>';
+    return;
+  }
+
+  document.getElementById('customers-count').textContent = `العملاء (${data.length})`;
+
+  if (!data.length) {
+    document.getElementById('customers-table').innerHTML =
+      '<div class="empty"><div class="empty-icon">👥</div>لا يوجد عملاء بعد</div>';
+    return;
+  }
+
+  document.getElementById('customers-table').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>الاسم</th>
+        <th>الهاتف</th>
+        <th>المدينة</th>
+        <th>النقاط</th>
+        <th>التاريخ</th>
+      </tr></thead>
+      <tbody>${data.map(c => `
+        <tr>
+          <td>${c.full_name || '—'}</td>
+          <td>${c.phone || '—'}</td>
+          <td>${c.city || '—'}</td>
+          <td>${c.points || 0} ⭐</td>
+          <td>${new Date(c.created_at).toLocaleDateString('ar-EG')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+/* ══ Check existing session ══ */
+db.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) return;
+  const { data: profile } = await db.from('profiles')
+    .select('is_admin, full_name').eq('id', session.user.id).single();
+  if (profile?.is_admin) {
+    document.getElementById('admin-name-display').textContent =
+      'مرحباً، ' + (profile.full_name || session.user.email.split('@')[0]);
+    showAdminPanel();
+    loadDashboard();
+  }
+});
+</script>
+</body>
+</html>
