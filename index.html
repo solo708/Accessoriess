@@ -3822,49 +3822,70 @@ function submitOrder() {
   updateCartUI(); persistUserData();
 
   // ③ احفظ في Supabase وابعت إيميل في الخلفية
-  setTimeout(async () => {
+  (async () => {
     let finalNum = orderNum;
 
+    // انتظر حتى يكون _supaDB جاهزاً (حد أقصى 8 ثواني)
+    let db = null;
+    for (let i = 0; i < 40; i++) {
+      if (window._supaDB) { db = window._supaDB; break; }
+      await new Promise(r => setTimeout(r, 200));
+    }
+
     // أ) حفظ في Supabase
-    try {
-      const db = window._supaDB;
-      if (db) {
-        let userId = null;
-        try { const { data: a } = await db.auth.getUser(); userId = a?.user?.id || null; } catch(_) {}
+    if (db) {
+      let inserted = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          let userId = null;
+          try { const { data: a } = await db.auth.getUser(); userId = a?.user?.id || null; } catch(_) {}
 
-        const { data: saved, error: insertError } = await db.from('orders').insert({
-          user_id:           userId,
-          customer_name:     (fname + ' ' + lname).trim(),
-          customer_phone:    phone,
-          customer_email:    email || null,
-          customer_city:     city,
-          customer_district: district,
-          customer_address:  address,
-          customer_notes:    notes || null,
-          items:             items,
-          subtotal:          sub,
-          discount:          disc,
-          total:             total,
-          status:            'pending',
-        }).select('order_number').single();
+          const { data: saved, error: insertError } = await db.from('orders').insert({
+            user_id:           userId,
+            customer_name:     (fname + ' ' + lname).trim(),
+            customer_phone:    phone,
+            customer_email:    email || null,
+            customer_city:     city,
+            customer_district: district,
+            customer_address:  address,
+            customer_notes:    notes || null,
+            items:             items,
+            subtotal:          sub,
+            discount:          disc,
+            total:             total,
+            status:            'pending',
+          }).select('order_number').single();
 
-        if (insertError) {
-          console.error('❌ Supabase insert error:', insertError.message, insertError.details);
-        } else {
-          finalNum = saved?.order_number || orderNum;
-          const numEl = document.getElementById('confirm-order-num');
-          if (numEl) numEl.textContent = finalNum;
-          console.log('✅ Saved to Supabase:', finalNum);
+          if (insertError) {
+            console.error(`❌ Supabase insert error (محاولة ${attempt}):`, insertError.message, insertError.details);
+            if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+          } else {
+            finalNum = saved?.order_number || orderNum;
+            const numEl = document.getElementById('confirm-order-num');
+            if (numEl) numEl.textContent = finalNum;
+            console.log('✅ Saved to Supabase:', finalNum);
+            inserted = true;
+            break;
+          }
+        } catch(e) {
+          console.error(`❌ Supabase exception (محاولة ${attempt}):`, e);
+          if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
         }
-      } else {
-        console.warn('⚠️ Supabase not ready');
       }
-    } catch(e) { console.error('❌ Supabase exception:', e); }
+      if (!inserted) console.error('❌ فشل حفظ الطلب في Supabase بعد 3 محاولات');
+    } else {
+      console.warn('⚠️ Supabase لم يتحمّل خلال 8 ثواني — الطلب محفوظ محلياً فقط');
+    }
 
-    // ب) إرسال الإيميل دائماً
-    try {
-      if (window._sendOrderEmail) {
-        await window._sendOrderEmail({
+    // ب) إرسال الإيميل — ينتظر هو الآخر حتى تكون _sendOrderEmail جاهزة
+    let sendFn = null;
+    for (let i = 0; i < 20; i++) {
+      if (window._sendOrderEmail) { sendFn = window._sendOrderEmail; break; }
+      await new Promise(r => setTimeout(r, 200));
+    }
+    if (sendFn) {
+      try {
+        await sendFn({
           order_number:      finalNum,
           customer_name:     (fname + ' ' + lname).trim(),
           customer_phone:    phone,
@@ -3875,11 +3896,11 @@ function submitOrder() {
           total:             total,
           notes:             notes,
         });
-      } else {
-        console.warn('⚠️ _sendOrderEmail غير جاهزة');
-      }
-    } catch(e) { console.error('❌ Email exception:', e); }
-  }, 300);
+      } catch(e) { console.error('❌ Email exception:', e); }
+    } else {
+      console.warn('⚠️ _sendOrderEmail غير جاهزة');
+    }
+  })();
 }
 
 /* ── Orders History ── */
