@@ -2237,6 +2237,26 @@ footer {
 .user-dd-item.danger:hover { background: rgba(224,82,82,0.08); color: var(--red); }
 .user-dd-sep { height: 1px; background: var(--border); margin: 0.3rem 0; }
 .nav-user-wrap { position: relative; }
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr;min-height:auto;padding:3rem 1.25rem 2rem;gap:2rem;text-align:center}
+  .hero-eyebrow{justify-content:center}
+  .hero-desc{max-width:100%;margin:0 auto}
+  .hero-actions{justify-content:center}
+  .hero-stats{justify-content:center;gap:1.5rem}
+  .hero-visual{order:-1}
+  .floating-badge{display:none}
+  .shop-layout{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .nav-links{display:none}
+  .nav-inner{padding:0 1rem}
+}
+@media(max-width:600px){
+  .hero-title{font-size:clamp(2.2rem,9vw,3.5rem)}
+  .hero-actions{flex-direction:column;align-items:stretch}
+  .btn-primary,.btn-outline{text-align:center}
+  .nav-actions{gap:0.25rem}
+  #nav-user-name{display:none}
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
