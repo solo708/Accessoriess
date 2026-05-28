@@ -3933,6 +3933,21 @@ function submitOrder() {
   state.cart = []; state.promoApplied = false; state.promoDiscount = 0.1;
   updateCartUI(); persistUserData();
 
+  // ② WhatsApp إشعار فوري لصاحب المتجر
+  (function sendWhatsApp() {
+    const WHATSAPP_NUMBER = '201285645448'; // ← غيّر الرقم ده
+    const itemsText = items.map(i => `• ${i.emoji||'🛍️'} ${i.name} ×${i.qty} (${i.price.toLocaleString('ar-EG')} ج.م)`).join('%0A');
+    const msg = `🛒 *طلب جديد - LUXE*%0A%0A`
+      + `🔢 رقم الطلب: ${orderNum}%0A`
+      + `👤 الاسم: ${fname} ${lname}%0A`
+      + `📞 الهاتف: ${phone}%0A`
+      + `📍 العنوان: ${city}، ${district} - ${address}%0A`
+      + `%0A📦 *المنتجات:*%0A${itemsText}%0A`
+      + `%0A💰 *الإجمالي: ${total.toLocaleString('ar-EG')} ج.م*`
+      + (notes ? `%0A📝 ملاحظات: ${notes}` : '');
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
+  })();
+
   // ③ احفظ في Supabase وابعت إيميل في الخلفية
   (async () => {
     let finalNum = orderNum;
@@ -4975,9 +4990,20 @@ document.addEventListener('DOMContentLoaded', function() {
   const CAT = {bags:'حقائب',watches:'ساعات',jewelry:'مجوهرات',sunglasses:'نظارات',belts:'أحزمة',scarves:'أوشحة',wallets:'محافظ',rings:'خواتم'};
 
   /* ══ تحميل المنتجات ══ */
+  // إظهار loading أثناء تحميل من Supabase
+  document.getElementById('products-grid').innerHTML = `
+    <div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--text-dim)">
+      <div style="font-size:2rem;margin-bottom:1rem">⏳</div>
+      <p style="font-size:0.9rem">جارٍ تحميل المنتجات...</p>
+    </div>`;
+
   db.from('products').select('*').eq('is_active', true).order('id')
     .then(({ data }) => {
-      if (!data || !data.length) return;
+      if (!data || !data.length) {
+        // إذا Supabase فارغ، اعرض المنتجات الافتراضية
+        if (typeof applyFilters === 'function') applyFilters();
+        return;
+      }
       PRODUCTS.length = 0;
       data.forEach(p => PRODUCTS.push({
         id: p.id, name: p.name_ar,
