@@ -1144,6 +1144,7 @@ function previewFromUrl(url) {
   thumb.src = url;
   thumb.style.display = 'block';
   placeholder.style.display = 'none';
+  document.getElementById('p-image-url').value = url;
   setImgStatus('✅ صورة محملة', 'var(--green)');
 }
 

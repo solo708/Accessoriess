@@ -3417,7 +3417,10 @@ function renderProducts() {
     return `
     <article class="product-card" data-id="${p.id}">
       <div class="card-img-wrap">
-        <div class="card-emoji">${p.emoji}</div>
+        ${p.image_url
+          ? `<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:inherit;" loading="lazy" alt="${p.name}">`
+          : `<div class="card-emoji">${p.emoji}</div>`
+        }
         <div class="card-overlay"></div>
         <div class="card-badges">${badgeHtml}</div>
         <div class="card-quick">
@@ -4270,7 +4273,10 @@ function buildMiniCard(p) {
   return `
   <article class="product-card" data-id="${p.id}">
     <div class="card-img-wrap">
-      <div class="card-emoji">${esc(p.emoji)}</div>
+      ${p.image_url
+        ? `<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:inherit;" loading="lazy" alt="${esc(p.name)}">`
+        : `<div class="card-emoji">${esc(p.emoji)}</div>`
+      }
       <div class="card-overlay"></div>
       <div class="card-badges">${p.badge ? getBadge(p.badge,p.inStock) : ''}</div>
       <div class="card-quick">
@@ -4858,6 +4864,7 @@ document.addEventListener('DOMContentLoaded', function() {
         id: p.id, name: p.name_ar,
         cat: CAT[p.category_slug] || p.category_slug,
         brand: 'LUXE', emoji: p.emoji || '🛍️',
+        image_url: p.image_url || null,
         price: +p.price,
         oldPrice: p.original_price ? +p.original_price : null,
         rating: +p.rating || 4.5, reviews: p.reviews_count || 0,
