@@ -1217,17 +1217,33 @@ async function toggleProduct(id, isActive) {
 async function loadCustomers() {
   document.getElementById('customers-table').innerHTML = '<div class="loading">⏳ جارٍ التحميل...</div>';
 
-  const { data, error } = await db.from('profiles').select('*').order('created_at', { ascending: false });
-  if (error || !data) {
+  // جلب العملاء + طلباتهم في نفس الوقت
+  const [profilesRes, ordersRes] = await Promise.all([
+    db.from('profiles').select('*').order('created_at', { ascending: false }),
+    db.from('orders').select('customer_phone, total, status, order_number, created_at, items')
+  ]);
+
+  if (profilesRes.error || !profilesRes.data) {
     document.getElementById('customers-table').innerHTML = '<div class="empty">⚠️ خطأ في التحميل</div>';
     return;
   }
 
-  document.getElementById('customers-count').textContent = `العملاء (${data.length})`;
+  const profiles = profilesRes.data;
+  const orders   = ordersRes.data || [];
 
-  if (!data.length) {
+  // تجميع الطلبات لكل عميل بالهاتف
+  const ordersByPhone = {};
+  orders.forEach(o => {
+    const phone = (o.customer_phone || '').replace(/\s/g, '');
+    if (!ordersByPhone[phone]) ordersByPhone[phone] = [];
+    ordersByPhone[phone].push(o);
+  });
+
+  document.getElementById('customers-count').textContent = `العملاء (${profiles.length})`;
+
+  if (!profiles.length) {
     document.getElementById('customers-table').innerHTML =
-      '<div class="empty"><div class="empty-icon">👥</div>لا يوجد عملاء بعد</div>';
+      '<div class="empty"><div class="empty-icon">👥</div>لا يوجد عملاء مسجلين بعد</div>';
     return;
   }
 
@@ -1235,21 +1251,55 @@ async function loadCustomers() {
     <table>
       <thead><tr>
         <th>الاسم</th>
+        <th>الإيميل</th>
         <th>الهاتف</th>
         <th>المدينة</th>
+        <th>الطلبات</th>
+        <th>إجمالي الإنفاق</th>
         <th>النقاط</th>
-        <th>التاريخ</th>
+        <th>تاريخ التسجيل</th>
+        <th></th>
       </tr></thead>
-      <tbody>${data.map(c => `
-        <tr>
-          <td>${c.full_name || '—'}</td>
+      <tbody>${profiles.map(c => {
+        const phone       = (c.phone || '').replace(/\s/g, '');
+        const cOrders     = ordersByPhone[phone] || [];
+        const totalSpent  = cOrders.reduce((s, o) => s + (+o.total || 0), 0);
+        const ordersCount = cOrders.length;
+        const ordersHtml  = cOrders.map(o => `
+          <tr style="background:var(--card-bg);font-size:0.78rem">
+            <td colspan="2" style="padding:0.4rem 1rem;color:var(--gold)">#${o.order_number}</td>
+            <td colspan="2" style="padding:0.4rem">${new Date(o.created_at).toLocaleDateString('ar-EG')}</td>
+            <td colspan="2" style="padding:0.4rem">${(+o.total).toLocaleString('ar-EG')} ج.م</td>
+            <td colspan="3" style="padding:0.4rem">
+              <span class="badge badge-${o.status==='delivered'?'active':o.status==='cancelled'?'inactive':'warning'}">
+                ${{pending:'⏳ جديد',confirmed:'✅ مؤكد',shipped:'🚚 شُحن',delivered:'📦 وُصّل',cancelled:'❌ ملغي'}[o.status]||o.status}
+              </span>
+            </td>
+          </tr>`).join('');
+
+        return `
+        <tr style="cursor:pointer" onclick="toggleCustomerOrders('co-${c.id}')">
+          <td><strong>${c.full_name || '—'}</strong></td>
+          <td style="font-size:0.8rem;color:var(--text-dim)">${c.email || '—'}</td>
           <td>${c.phone || '—'}</td>
           <td>${c.city || '—'}</td>
+          <td style="text-align:center">
+            <span class="badge ${ordersCount>0?'badge-active':'badge-inactive'}">${ordersCount} طلب</span>
+          </td>
+          <td style="color:var(--green);font-weight:600">${totalSpent>0 ? totalSpent.toLocaleString('ar-EG')+' ج.م' : '—'}</td>
           <td>${c.points || 0} ⭐</td>
-          <td>${new Date(c.created_at).toLocaleDateString('ar-EG')}</td>
-        </tr>`).join('')}
+          <td style="font-size:0.8rem">${new Date(c.created_at).toLocaleDateString('ar-EG')}</td>
+          <td>${ordersCount > 0 ? '▼' : ''}</td>
+        </tr>
+        ${ordersCount > 0 ? `<tr id="co-${c.id}" style="display:none">${ordersHtml ? '<td colspan='9' style='padding:0'><table style='width:100%'><tbody>'+ordersHtml+'</tbody></table></td>' : ''}</tr>` : ''}`;
+      }).join('')}
       </tbody>
     </table>`;
+}
+
+function toggleCustomerOrders(id) {
+  const row = document.getElementById(id);
+  if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
 }
 
 /* ══ Comments ══ */

@@ -3933,19 +3933,26 @@ function submitOrder() {
   state.cart = []; state.promoApplied = false; state.promoDiscount = 0.1;
   updateCartUI(); persistUserData();
 
-  // ② WhatsApp إشعار فوري لصاحب المتجر
-  (function sendWhatsApp() {
-    const WHATSAPP_NUMBER = '201285645448'; // ← غيّر الرقم ده
-    const itemsText = items.map(i => `• ${i.emoji||'🛍️'} ${i.name} ×${i.qty} (${i.price.toLocaleString('ar-EG')} ج.م)`).join('%0A');
-    const msg = `🛒 *طلب جديد - LUXE*%0A%0A`
-      + `🔢 رقم الطلب: ${orderNum}%0A`
-      + `👤 الاسم: ${fname} ${lname}%0A`
-      + `📞 الهاتف: ${phone}%0A`
-      + `📍 العنوان: ${city}، ${district} - ${address}%0A`
-      + `%0A📦 *المنتجات:*%0A${itemsText}%0A`
-      + `%0A💰 *الإجمالي: ${total.toLocaleString('ar-EG')} ج.م*`
-      + (notes ? `%0A📝 ملاحظات: ${notes}` : '');
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
+  // ② Telegram إشعار فوري لصاحب المتجر
+  (async function sendTelegram() {
+    const TG_TOKEN   = '8746967515:AAE23TKejR_7uELPySZnVbPQsiMVT9xGx8M';
+    const TG_CHAT_ID = '6956360895';
+    const itemsText  = items.map(i => `• ${i.emoji||'🛍️'} ${i.name} ×${i.qty} — ${i.price.toLocaleString('ar-EG')} ج.م`).join('\n');
+    const msg = `🛒 <b>طلب جديد — LUXE</b>\n\n`
+      + `🔢 رقم الطلب: <code>${orderNum}</code>\n`
+      + `👤 الاسم: ${fname} ${lname}\n`
+      + `📞 الهاتف: ${phone}\n`
+      + `📍 العنوان: ${city}، ${district}\n${address}\n`
+      + `\n📦 <b>المنتجات:</b>\n${itemsText}\n`
+      + `\n💰 <b>الإجمالي: ${total.toLocaleString('ar-EG')} ج.م</b>`
+      + (notes ? `\n📝 ملاحظات: ${notes}` : '');
+    try {
+      await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TG_CHAT_ID, text: msg, parse_mode: 'HTML' })
+      });
+    } catch(e) { console.warn('Telegram notification failed', e); }
   })();
 
   // ③ احفظ في Supabase وابعت إيميل في الخلفية
@@ -5102,7 +5109,19 @@ document.addEventListener('DOMContentLoaded', function() {
       return showAuthError('register-error', m[error.message] || '⚠️ ' + error.message);
     }
 
-    // ✅ FIX: حفظ بيانات المستخدم محلياً بدون كلمة المرور (Supabase يديرها)
+    // ✅ حفظ بيانات المستخدم في Supabase profiles
+    if (data?.user?.id) {
+      await db.from('profiles').upsert({
+        id:         data.user.id,
+        full_name:  name,
+        email:      email,
+        phone:      '',
+        city:       '',
+        points:     0,
+        created_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    }
+
     const users = typeof getUsers === 'function' ? getUsers() : {};
     users[email] = { name, email, createdAt: Date.now(), wishlist: [], cart: [], points: 0 };
     if (typeof saveUsers === 'function') saveUsers(users);
