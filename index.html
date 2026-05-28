@@ -1385,13 +1385,6 @@ footer {
 /* ═══════════════════════════════════════════════════
    BESTSELLERS
 ═══════════════════════════════════════════════════ */
-.best-section { padding:4rem 2rem; }
-.best-inner { max-width:1400px; margin:0 auto; }
-.best-grid {
-  display:grid; grid-template-columns:repeat(4,1fr); gap:1.2rem;
-}
-@media(max-width:1100px){ .best-grid{grid-template-columns:repeat(2,1fr);} }
-@media(max-width:640px){  .best-grid{grid-template-columns:1fr;} }
 
 /* ═══════════════════════════════════════════════════
    PROMO BANNER
@@ -1610,24 +1603,21 @@ footer {
   background:linear-gradient(135deg,var(--gold),var(--bg-3));
   border:2px solid var(--border-h);
   display:flex; align-items:center; justify-content:center;
-  font-size:1.1rem; flex-shrink:0;
+  font-size:1rem; font-weight:700; color:#000; flex-shrink:0;
 }
 .reviewer-name { font-size:0.85rem; color:var(--cream); }
 .reviewer-date { font-size:0.7rem; color:var(--text-dim); }
-.review-stars { color:var(--gold); font-size:0.8rem; margin-bottom:0.75rem; }
+.review-stars { color:var(--gold); font-size:0.85rem; margin-bottom:0.75rem; letter-spacing:1px; }
 .review-text {
   font-size:0.82rem; color:var(--cream-dim); line-height:1.7;
   border-top:1px solid var(--border); padding-top:0.75rem;
 }
-.review-product {
-  display:flex; align-items:center; gap:0.4rem;
-  margin-top:0.75rem; font-size:0.72rem; color:var(--text-dim);
-}
-.review-product span { color:var(--gold); }
 .review-verified {
   display:inline-flex; align-items:center; gap:0.3rem;
-  font-size:0.68rem; color:var(--green); margin-top:0.4rem;
+  font-size:0.68rem; color:var(--green); margin-top:0.5rem;
 }
+#comment-text:focus { outline:none; }
+.star-opt:hover, .star-opt.active { color:var(--gold) !important; }
 
 /* ═══════════════════════════════════════════════════
    LOYALTY
@@ -2915,21 +2905,7 @@ footer {
   </div>
 </section>
 
-<!-- ══════════════════════════════════════════════════
-     BESTSELLERS SECTION
-══════════════════════════════════════════════════ -->
-<section class="best-section">
-  <div class="best-inner">
-    <div class="section-header">
-      <div>
-        <div class="section-eyebrow">الأكثر مبيعاً</div>
-        <h2 class="section-title">المفضلات الدائمة</h2>
-      </div>
-      <button class="btn-outline" onclick="scrollToShop()">عرض الكل ←</button>
-    </div>
-    <div class="best-grid" id="best-grid"></div>
-  </div>
-</section>
+
 
 <!-- ══════════════════════════════════════════════════
      BANNER PROMO
@@ -3027,9 +3003,9 @@ footer {
 </div>
 
 <!-- ══════════════════════════════════════════════════
-     REVIEWS SECTION
+     COMMENTS SECTION
 ══════════════════════════════════════════════════ -->
-<section class="reviews-section">
+<section class="reviews-section" id="comments-section">
   <div class="reviews-inner">
     <div class="section-header">
       <div>
@@ -3037,7 +3013,73 @@ footer {
         <h2 class="section-title">ماذا يقولون عنّا</h2>
       </div>
     </div>
-    <div class="reviews-grid" id="reviews-grid"></div>
+
+    <!-- نموذج إضافة تعليق -->
+    <div id="comment-form-wrap" style="
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius-lg); padding:1.5rem;
+      margin-bottom:2rem; display:none;
+    ">
+      <div style="font-size:0.95rem;font-weight:600;color:var(--gold);margin-bottom:1rem;">✍️ أضف تعليقك</div>
+
+      <!-- التقييم بالنجوم -->
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:0.78rem;color:var(--text-dim);margin-bottom:0.4rem;">تقييمك</div>
+        <div id="star-selector" style="display:flex;gap:0.3rem;flex-direction:row-reverse;justify-content:flex-end;">
+          <span class="star-opt" data-v="5" onclick="selectStar(5)" style="font-size:1.6rem;cursor:pointer;color:var(--border-h);transition:color 0.15s">★</span>
+          <span class="star-opt" data-v="4" onclick="selectStar(4)" style="font-size:1.6rem;cursor:pointer;color:var(--border-h);transition:color 0.15s">★</span>
+          <span class="star-opt" data-v="3" onclick="selectStar(3)" style="font-size:1.6rem;cursor:pointer;color:var(--border-h);transition:color 0.15s">★</span>
+          <span class="star-opt" data-v="2" onclick="selectStar(2)" style="font-size:1.6rem;cursor:pointer;color:var(--border-h);transition:color 0.15s">★</span>
+          <span class="star-opt" data-v="1" onclick="selectStar(1)" style="font-size:1.6rem;cursor:pointer;color:var(--border-h);transition:color 0.15s">★</span>
+        </div>
+      </div>
+
+      <textarea id="comment-text" placeholder="اكتب رأيك في المتجر أو المنتجات..." style="
+        width:100%; min-height:90px; resize:vertical;
+        background:var(--bg-3); border:1px solid var(--border);
+        border-radius:10px; padding:0.8rem 1rem;
+        color:var(--cream); font-family:inherit; font-size:0.88rem;
+        line-height:1.6; text-align:right; direction:rtl;
+        margin-bottom:0.75rem;
+      " onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+
+      <button onclick="submitComment()" style="
+        background:var(--gold); color:#000; border:none;
+        border-radius:8px; padding:0.6rem 1.5rem;
+        font-family:inherit; font-size:0.88rem; font-weight:700;
+        cursor:pointer; transition:opacity 0.2s;
+      " onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'" id="comment-submit-btn">
+        إرسال التعليق
+      </button>
+    </div>
+
+    <!-- رسالة لغير المسجلين -->
+    <div id="comment-login-msg" style="
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius-lg); padding:1.25rem 1.5rem;
+      margin-bottom:2rem; font-size:0.85rem; color:var(--text-dim);
+      display:flex; align-items:center; gap:0.75rem;
+    ">
+      <span style="font-size:1.3rem">🔒</span>
+      <span>سجّل دخولك لإضافة تعليق — <button onclick="openAuthModal()" style="background:none;border:none;color:var(--gold);font-family:inherit;font-size:inherit;cursor:pointer;text-decoration:underline;">تسجيل الدخول</button></span>
+    </div>
+
+    <!-- التعليقات -->
+    <div class="reviews-grid" id="reviews-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-dim)">⏳ جارٍ تحميل التعليقات...</div>
+    </div>
+
+    <!-- تحميل المزيد -->
+    <div style="text-align:center;margin-top:1.5rem;">
+      <button id="load-more-comments" onclick="loadMoreComments()" style="
+        display:none; background:none; border:1px solid var(--border);
+        color:var(--cream-dim); border-radius:8px; padding:0.6rem 1.5rem;
+        font-family:inherit; font-size:0.85rem; cursor:pointer;
+        transition:border-color 0.2s;
+      " onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
+        تحميل المزيد
+      </button>
+    </div>
   </div>
 </section>
 
@@ -4432,31 +4474,108 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 /* ══════════════════════════════════════════════════
-   REVIEWS DATA & RENDER
+   COMMENTS SYSTEM — Supabase
 ══════════════════════════════════════════════════ */
-const REVIEWS = [
-  { name:'منة الله محمد', avatar:'👩', stars:5, date:'منذ 3 أيام', text:'المنتج فاق توقعاتي! الجودة ممتازة والتغليف فاخر جداً. التوصيل وصل لحد باب البيت في يومين. سأطلب مرة أخرى بالتأكيد.', product:'حقيبة الأناقة الكلاسيكية', verified:true },
-  { name:'كريم عبد الرحمن', avatar:'👨', stars:5, date:'منذ أسبوع', text:'ساعة رائعة، التصميم كلاسيكي أنيق والدقة عالية. تستحق كل جنيه دفعته. التغليف كان محترم جداً.', product:'ساعة رويال كلاسيك', verified:true },
-  { name:'نورهان السيد', avatar:'👩‍🦱', stars:4, date:'منذ أسبوعين', text:'النظارة جميلة ومريحة للاستخدام اليومي، الشحن كان سريع والتغليف ممتاز. ينفع هدية كمان.', product:'نظارة شمسية بريمييم', verified:true },
-  { name:'أحمد حسام', avatar:'🧔', stars:5, date:'منذ شهر', text:'خاتم الماس أجمل مما رأيته في الصور! زوجتي أحبته جداً. خدمة العملاء محترمة وردوا على استفساراتي بسرعة.', product:'خاتم الماس الفاخر', verified:true },
-  { name:'ريم الشناوي', avatar:'👱‍♀️', stars:5, date:'منذ شهر', text:'الوشاح ناعم جداً وجودته عالية، بالضبط اللي كنت بدور عليه. شكراً LUXE على الخدمة الممتازة!', product:'وشاح كشمير الفاخر', verified:false },
-  { name:'محمود طارق', avatar:'🧑', stars:4, date:'منذ شهرين', text:'حقيبة السفر خفيفة ومتينة، الأقفال ممتازة والعجلات بتدور بسلاسة. أوصي بيها لأي حد بيسافر كتير.', product:'حقيبة سفر فاخرة', verified:true },
-];
-function renderReviews() {
-  document.getElementById('reviews-grid').innerHTML = REVIEWS.map(r=>`
-    <div class="review-card">
-      <div class="review-top">
-        <div class="reviewer-avatar">${r.avatar}</div>
-        <div>
-          <div class="reviewer-name">${r.name}</div>
-          <div class="reviewer-date">${r.date}</div>
-        </div>
+let _commentPage = 0;
+const _commentLimit = 6;
+let _commentStar = 0;
+let _commentsDb = null;
+
+function selectStar(val) {
+  _commentStar = val;
+  document.querySelectorAll('.star-opt').forEach(s => {
+    s.classList.toggle('active', +s.dataset.v <= val);
+  });
+}
+
+function _renderCommentCard(c) {
+  const stars = '★'.repeat(c.stars || 5) + '☆'.repeat(5 - (c.stars || 5));
+  const initial = (c.user_name || 'م').charAt(0).toUpperCase();
+  const date = new Date(c.created_at).toLocaleDateString('ar-EG', { year:'numeric', month:'short', day:'numeric' });
+  return `
+  <div class="review-card">
+    <div class="review-top">
+      <div class="reviewer-avatar">${initial}</div>
+      <div>
+        <div class="reviewer-name">${esc(c.user_name || 'مستخدم')}</div>
+        <div class="reviewer-date">${date}</div>
       </div>
-      <div class="review-stars">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
-      <p class="review-text">${r.text}</p>
-      <div class="review-product">🛍 <span>${r.product}</span></div>
-      ${r.verified?'<div class="review-verified">✅ مشتري موثق</div>':''}
-    </div>`).join('');
+    </div>
+    <div class="review-stars">${stars}</div>
+    <p class="review-text">${esc(c.text)}</p>
+    <div class="review-verified">✅ عميل موثق</div>
+  </div>`;
+}
+
+async function loadComments(reset) {
+  if (!_commentsDb) return;
+  if (reset) { _commentPage = 0; document.getElementById('reviews-grid').innerHTML = ''; }
+  const from = _commentPage * _commentLimit;
+  const to   = from + _commentLimit - 1;
+  const { data, error, count } = await _commentsDb
+    .from('comments')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  const grid = document.getElementById('reviews-grid');
+  if (error || !data) {
+    if (_commentPage === 0) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-dim)">لا توجد تعليقات بعد — كن أول من يعلّق!</div>';
+    return;
+  }
+  if (_commentPage === 0 && data.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-dim)">لا توجد تعليقات بعد — كن أول من يعلّق!</div>';
+    document.getElementById('load-more-comments').style.display = 'none';
+    return;
+  }
+  grid.insertAdjacentHTML('beforeend', data.map(_renderCommentCard).join(''));
+  _commentPage++;
+  const loaded = _commentPage * _commentLimit;
+  document.getElementById('load-more-comments').style.display = (loaded < count) ? '' : 'none';
+}
+
+function loadMoreComments() { loadComments(false); }
+
+async function submitComment() {
+  if (!_commentsDb) return;
+  const session = await _commentsDb.auth.getSession();
+  const user = session?.data?.session?.user;
+  if (!user) { alert('سجّل دخولك أولاً'); return; }
+  const text = document.getElementById('comment-text').value.trim();
+  if (!text) { alert('اكتب تعليقك أولاً'); return; }
+  if (!_commentStar) { alert('اختر تقييمك بالنجوم'); return; }
+  const btn = document.getElementById('comment-submit-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ جارٍ الإرسال...';
+  const { data: profile } = await _commentsDb.from('profiles').select('full_name').eq('id', user.id).single();
+  const userName = profile?.full_name || user.email?.split('@')[0] || 'مستخدم';
+  const { error } = await _commentsDb.from('comments').insert({
+    user_id: user.id,
+    user_name: userName,
+    text,
+    stars: _commentStar,
+  });
+  btn.disabled = false;
+  btn.textContent = 'إرسال التعليق';
+  if (error) { alert('حدث خطأ، حاول مرة أخرى'); return; }
+  document.getElementById('comment-text').value = '';
+  _commentStar = 0;
+  selectStar(0);
+  loadComments(true);
+}
+
+function _initComments(db) {
+  _commentsDb = db;
+  loadComments(true);
+  db.auth.getSession().then(({ data: { session } }) => {
+    const loggedIn = !!session?.user;
+    document.getElementById('comment-form-wrap').style.display  = loggedIn ? '' : 'none';
+    document.getElementById('comment-login-msg').style.display  = loggedIn ? 'none' : '';
+  });
+  db.auth.onAuthStateChange((event, session) => {
+    const loggedIn = !!session?.user;
+    document.getElementById('comment-form-wrap').style.display  = loggedIn ? '' : 'none';
+    document.getElementById('comment-login-msg').style.display  = loggedIn ? 'none' : '';
+  });
 }
 
 /* ══════════════════════════════════════════════════
@@ -4810,9 +4929,6 @@ document.getElementById('reg-email').addEventListener('keydown',      e => { if(
    INIT ALL
 ══════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // ✅ FIX: renderBestsellers فقط إذا في بيانات محلية، وإلا Supabase ستستدعيها
-  if (PRODUCTS.length > 0) renderBestsellers();
-  renderReviews();
   renderRecent();
   initCountdown();
   updateLoyalty();
@@ -4853,6 +4969,9 @@ document.addEventListener('DOMContentLoaded', function() {
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkbHR5aHJodWx4c2lyYWRreHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NzczNjEsImV4cCI6MjA5NTI1MzM2MX0.QJ521cjsHPqJ-JlVBhChx6Gj_xJNa57fS2iay0fDfSw'
   );
 
+  /* ══ تهيئة التعليقات ══ */
+  _initComments(db);
+
   const CAT = {bags:'حقائب',watches:'ساعات',jewelry:'مجوهرات',sunglasses:'نظارات',belts:'أحزمة',scarves:'أوشحة',wallets:'محافظ',rings:'خواتم'};
 
   /* ══ تحميل المنتجات ══ */
@@ -4882,7 +5001,6 @@ document.addEventListener('DOMContentLoaded', function() {
         inStock: p.stock > 0, desc: p.description_ar || '', stock: p.stock,
       }));
       if (typeof applyFilters === 'function') applyFilters();
-      if (typeof renderBestsellers === 'function') renderBestsellers();
       // ✅ FIX: استدعاء تحميل الأمنيات المؤجّل إذا كان المستخدم مسجلاً
       if (typeof window._pendingWishlistLoad === 'function') {
         window._pendingWishlistLoad();
