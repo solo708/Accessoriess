@@ -504,6 +504,12 @@
         <div class="nav-item" onclick="showPage('customers')">
           <span class="icon">👥</span> العملاء
         </div>
+        <div class="nav-item" onclick="showPage('comments')">
+          <span class="icon">💬</span> التعليقات
+        </div>
+        <div class="nav-item" onclick="showPage('loyalty')">
+          <span class="icon">⭐</span> نقاط الولاء
+        </div>
       </nav>
 
       <div class="sidebar-footer" style="position:absolute;bottom:0;width:100%;background:var(--surface)">
@@ -591,6 +597,33 @@
             <span class="table-title" id="customers-count">العملاء</span>
           </div>
           <div id="customers-table"><div class="loading">⏳ جارٍ التحميل...</div></div>
+        </div>
+      </div>
+
+      <!-- Comments -->
+      <div class="page" id="page-comments">
+        <div class="page-title">💬 التعليقات</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title" id="comments-count">التعليقات</span>
+            <select class="status-select" id="filter-comments" onchange="loadComments()">
+              <option value="">كل التعليقات</option>
+              <option value="visible">ظاهرة</option>
+              <option value="hidden">مخفية</option>
+            </select>
+          </div>
+          <div id="comments-table"><div class="loading">⏳ جارٍ التحميل...</div></div>
+        </div>
+      </div>
+
+      <!-- Loyalty -->
+      <div class="page" id="page-loyalty">
+        <div class="page-title">⭐ نقاط الولاء</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title" id="loyalty-count">العملاء</span>
+          </div>
+          <div id="loyalty-table"><div class="loading">⏳ جارٍ التحميل...</div></div>
         </div>
       </div>
 
@@ -741,6 +774,39 @@
   </div>
 </div>
 
+<!-- Loyalty Points Modal -->
+<div class="modal-bg" id="loyalty-modal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">⭐ تعديل نقاط الولاء</div>
+    <input type="hidden" id="loy-user-id">
+    <div class="form-group">
+      <label class="form-label" id="loy-user-name-label">العميل</label>
+    </div>
+    <div class="form-group">
+      <label class="form-label">النقاط الحالية</label>
+      <div id="loy-current" style="font-size:1.4rem;font-weight:700;color:var(--gold);padding:0.5rem 0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">العملية</label>
+        <select class="form-select" id="loy-op">
+          <option value="set">تعيين</option>
+          <option value="add">إضافة</option>
+          <option value="sub">خصم</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">القيمة</label>
+        <input class="form-input" id="loy-val" type="number" min="0" placeholder="0">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="document.getElementById('loyalty-modal').classList.remove('open')">إلغاء</button>
+      <button class="btn btn-gold" onclick="saveLoyalty()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="admin-toast"></div>
 
@@ -830,6 +896,8 @@ function showPage(page) {
   if (page === 'orders')    loadOrders();
   if (page === 'products')  loadProducts();
   if (page === 'customers') loadCustomers();
+  if (page === 'comments')  loadComments();
+  if (page === 'loyalty')   loadLoyalty();
 
   if (window.innerWidth <= 768) {
     document.getElementById('sidebar').classList.remove('open');
@@ -1109,6 +1177,160 @@ async function loadCustomers() {
         </tr>`).join('')}
       </tbody>
     </table>`;
+}
+
+/* ══ Comments ══ */
+async function loadComments() {
+  document.getElementById('comments-table').innerHTML = '<div class="loading">⏳ جارٍ التحميل...</div>';
+  const filter = document.getElementById('filter-comments').value;
+
+  let q = db.from('comments').select('*').order('created_at', { ascending: false });
+  if (filter === 'visible') q = q.eq('is_visible', true);
+  if (filter === 'hidden')  q = q.eq('is_visible', false);
+
+  const { data, error } = await q;
+  if (error || !data) {
+    document.getElementById('comments-table').innerHTML = '<div class="empty">⚠️ خطأ في التحميل</div>';
+    return;
+  }
+
+  document.getElementById('comments-count').textContent = `التعليقات (${data.length})`;
+
+  if (!data.length) {
+    document.getElementById('comments-table').innerHTML =
+      '<div class="empty"><div class="empty-icon">💬</div>لا توجد تعليقات</div>';
+    return;
+  }
+
+  document.getElementById('comments-table').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>العميل</th>
+        <th>التعليق</th>
+        <th>التقييم</th>
+        <th>الحالة</th>
+        <th>التاريخ</th>
+        <th>إجراءات</th>
+      </tr></thead>
+      <tbody>${data.map(c => `
+        <tr>
+          <td><strong>${c.user_name || '—'}</strong></td>
+          <td style="max-width:250px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.text}</td>
+          <td style="color:var(--gold)">${'★'.repeat(c.stars||5)}</td>
+          <td>
+            <span class="badge badge-${c.is_visible!==false?'active':'inactive'}">
+              ${c.is_visible!==false?'ظاهر':'مخفي'}
+            </span>
+          </td>
+          <td>${new Date(c.created_at).toLocaleDateString('ar-EG')}</td>
+          <td style="display:flex;gap:0.4rem">
+            <button class="btn btn-blue btn-sm" onclick="toggleComment('${c.id}',${c.is_visible!==false})" title="${c.is_visible!==false?'إخفاء':'إظهار'}">
+              ${c.is_visible!==false?'🙈':'👁️'}
+            </button>
+            <button class="btn btn-red btn-sm" onclick="deleteComment('${c.id}')" title="حذف">🗑️</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function toggleComment(id, isVisible) {
+  const { error } = await db.from('comments').update({ is_visible: !isVisible }).eq('id', id);
+  if (error) { toast('⚠️ خطأ في التحديث'); return; }
+  toast(isVisible ? '🙈 تم إخفاء التعليق' : '👁️ تم إظهار التعليق');
+  loadComments();
+}
+
+async function deleteComment(id) {
+  if (!confirm('هل أنت متأكد من حذف هذا التعليق؟')) return;
+  const { error } = await db.from('comments').delete().eq('id', id);
+  if (error) { toast('⚠️ خطأ في الحذف'); return; }
+  toast('🗑️ تم حذف التعليق');
+  loadComments();
+}
+
+/* ══ Loyalty Points ══ */
+async function loadLoyalty() {
+  document.getElementById('loyalty-table').innerHTML = '<div class="loading">⏳ جارٍ التحميل...</div>';
+
+  const { data, error } = await db.from('profiles')
+    .select('id, full_name, phone, points, created_at')
+    .order('points', { ascending: false });
+
+  if (error || !data) {
+    document.getElementById('loyalty-table').innerHTML = '<div class="empty">⚠️ خطأ في التحميل</div>';
+    return;
+  }
+
+  document.getElementById('loyalty-count').textContent = `العملاء (${data.length})`;
+
+  if (!data.length) {
+    document.getElementById('loyalty-table').innerHTML =
+      '<div class="empty"><div class="empty-icon">⭐</div>لا يوجد عملاء بعد</div>';
+    return;
+  }
+
+  document.getElementById('loyalty-table').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>العميل</th>
+        <th>الهاتف</th>
+        <th>النقاط</th>
+        <th>المستوى</th>
+        <th>تعديل</th>
+      </tr></thead>
+      <tbody>${data.map(c => {
+        const pts = c.points || 0;
+        const tier = pts >= 5000 ? { label:'🥇 ذهبي', color:'var(--gold)' }
+                   : pts >= 1000 ? { label:'🥈 فضي',  color:'#aaa' }
+                   :               { label:'🥉 برونز', color:'#cd7f32' };
+        return `
+        <tr>
+          <td><strong>${c.full_name || '—'}</strong></td>
+          <td>${c.phone || '—'}</td>
+          <td style="font-weight:700;color:var(--gold);font-size:1.05rem">${pts.toLocaleString('ar-EG')} ⭐</td>
+          <td><span style="color:${tier.color};font-weight:600">${tier.label}</span></td>
+          <td>
+            <button class="btn btn-blue btn-sm" onclick="openLoyaltyModal('${c.id}','${(c.full_name||'عميل').replace(/'/g,"\\'")}',${pts})">
+              ✏️ تعديل
+            </button>
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function openLoyaltyModal(userId, userName, currentPts) {
+  document.getElementById('loy-user-id').value = userId;
+  document.getElementById('loy-user-name-label').textContent = 'العميل: ' + userName;
+  document.getElementById('loy-current').textContent = currentPts.toLocaleString('ar-EG') + ' نقطة';
+  document.getElementById('loy-op').value = 'set';
+  document.getElementById('loy-val').value = currentPts;
+  document.getElementById('loyalty-modal').classList.add('open');
+}
+
+async function saveLoyalty() {
+  const userId  = document.getElementById('loy-user-id').value;
+  const op      = document.getElementById('loy-op').value;
+  const val     = +document.getElementById('loy-val').value;
+
+  if (isNaN(val) || val < 0) { toast('⚠️ أدخل قيمة صحيحة'); return; }
+
+  // احسب النقاط الحالية أولاً لو العملية إضافة أو خصم
+  let newPts = val;
+  if (op !== 'set') {
+    const { data: prof } = await db.from('profiles').select('points').eq('id', userId).single();
+    const cur = prof?.points || 0;
+    newPts = op === 'add' ? cur + val : Math.max(0, cur - val);
+  }
+
+  const { error } = await db.from('profiles').update({ points: newPts }).eq('id', userId);
+  if (error) { toast('⚠️ خطأ: ' + error.message); return; }
+
+  toast('✅ تم تحديث النقاط');
+  document.getElementById('loyalty-modal').classList.remove('open');
+  loadLoyalty();
 }
 
 /* ══ Check existing session ══ */
