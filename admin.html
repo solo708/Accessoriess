@@ -356,6 +356,10 @@
 
   .form-textarea { resize: vertical; min-height: 80px; }
 
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #img-preview-box:hover { border-color: rgba(201,168,76,0.5); }
+
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 
   .modal-footer {
@@ -618,8 +622,70 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label">رابط الصورة (Image URL)</label>
-      <input class="form-input" id="p-image-url" type="url" placeholder="https://...jpg">
+      <label class="form-label">صورة المنتج</label>
+
+      <!-- Preview Box -->
+      <div id="img-preview-box" style="
+        width:100%; height:160px;
+        background:var(--surface2);
+        border:2px dashed var(--border);
+        border-radius:10px;
+        display:flex; flex-direction:column;
+        align-items:center; justify-content:center;
+        gap:0.5rem; cursor:pointer;
+        transition:border-color 0.2s;
+        overflow:hidden; position:relative;
+        margin-bottom:0.6rem;
+      " onclick="document.getElementById('p-image-file').click()">
+        <img id="img-preview-thumb" src="" alt="" style="
+          display:none; width:100%; height:100%;
+          object-fit:cover; position:absolute; inset:0;
+        ">
+        <div id="img-preview-placeholder" style="text-align:center">
+          <div style="font-size:2rem">🖼️</div>
+          <div style="font-size:0.78rem;color:var(--text-dim)">اضغط لاختيار صورة</div>
+          <div style="font-size:0.68rem;color:var(--text-dim);margin-top:2px">JPG, PNG, WEBP — حد أقصى 5MB</div>
+        </div>
+        <div id="img-upload-overlay" style="
+          display:none; position:absolute; inset:0;
+          background:rgba(0,0,0,0.6);
+          align-items:center; justify-content:center;
+          flex-direction:column; gap:0.5rem;
+        ">
+          <div id="img-upload-spinner" style="
+            width:32px; height:32px;
+            border:3px solid rgba(201,168,76,0.3);
+            border-top-color:var(--gold);
+            border-radius:50%;
+            animation:spin 0.8s linear infinite;
+          "></div>
+          <div style="font-size:0.78rem;color:#fff" id="img-upload-pct">جارٍ الرفع...</div>
+        </div>
+      </div>
+
+      <!-- Hidden file input -->
+      <input type="file" id="p-image-file" accept="image/jpeg,image/png,image/webp,image/gif"
+        style="display:none" onchange="handleImageUpload(this)">
+
+      <!-- URL input (يُملأ تلقائياً بعد الرفع أو يدوياً) -->
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <input class="form-input" id="p-image-url" type="url"
+          placeholder="أو الصق رابط صورة مباشرة..."
+          style="flex:1;font-size:0.8rem"
+          oninput="previewFromUrl(this.value)">
+        <button type="button" onclick="clearImage()" title="مسح الصورة"
+          style="
+            width:36px;height:36px;border-radius:8px;
+            background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);
+            color:var(--red);font-size:1rem;flex-shrink:0;cursor:pointer;
+            transition:background 0.2s;
+          "
+          onmouseover="this.style.background='rgba(231,76,60,0.2)'"
+          onmouseout="this.style.background='rgba(231,76,60,0.1)'"
+        >🗑</button>
+      </div>
+
+      <div id="img-status" style="font-size:0.72rem;margin-top:0.4rem;display:none"></div>
     </div>
 
     <div class="form-row">
@@ -934,6 +1000,7 @@ function openProductModal(product) {
   document.getElementById('p-stock').value    = '';
   document.getElementById('p-featured').checked = false;
   document.getElementById('p-new').checked      = false;
+  clearImage();
   document.getElementById('product-modal').classList.add('open');
 }
 
@@ -957,6 +1024,8 @@ async function editProduct(id) {
   document.getElementById('p-stock').value     = p.stock;
   document.getElementById('p-featured').checked = p.is_featured;
   document.getElementById('p-new').checked      = p.is_new;
+  clearImage();
+  if (p.image_url) previewFromUrl(p.image_url);
   document.getElementById('product-modal').classList.add('open');
 }
 
@@ -1054,6 +1123,143 @@ db.auth.getSession().then(async ({ data: { session } }) => {
     loadDashboard();
   }
 });
+</script>
+
+<script>
+/* ══════════════════════════════════════════════
+   IMAGE UPLOAD — Supabase Storage
+══════════════════════════════════════════════ */
+
+function setImgStatus(msg, color) {
+  const el = document.getElementById('img-status');
+  el.textContent = msg;
+  el.style.color = color || 'var(--text-dim)';
+  el.style.display = msg ? '' : 'none';
+}
+
+function previewFromUrl(url) {
+  if (!url) return;
+  const thumb = document.getElementById('img-preview-thumb');
+  const placeholder = document.getElementById('img-preview-placeholder');
+  thumb.src = url;
+  thumb.style.display = 'block';
+  placeholder.style.display = 'none';
+  setImgStatus('✅ صورة محملة', 'var(--green)');
+}
+
+function clearImage() {
+  const thumb = document.getElementById('img-preview-thumb');
+  const placeholder = document.getElementById('img-preview-placeholder');
+  const fileInput = document.getElementById('p-image-file');
+  thumb.src = '';
+  thumb.style.display = 'none';
+  placeholder.style.display = 'flex';
+  document.getElementById('p-image-url').value = '';
+  document.getElementById('p-image-url').dispatchEvent(new Event('input'));
+  if (fileInput) fileInput.value = '';
+  setImgStatus('');
+}
+
+async function handleImageUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  /* تحقق من الحجم (5MB) */
+  if (file.size > 5 * 1024 * 1024) {
+    setImgStatus('❌ الصورة أكبر من 5MB', 'var(--red)');
+    input.value = '';
+    return;
+  }
+
+  /* تحقق من النوع */
+  if (!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)) {
+    setImgStatus('❌ نوع الملف غير مدعوم', 'var(--red)');
+    input.value = '';
+    return;
+  }
+
+  /* اعرض Preview محلي فوراً */
+  const localURL = URL.createObjectURL(file);
+  previewFromUrl(localURL);
+  setImgStatus('⏳ جارٍ الرفع...', 'var(--gold)');
+
+  /* اظهر overlay التحميل */
+  const overlay = document.getElementById('img-upload-overlay');
+  overlay.style.display = 'flex';
+
+  try {
+    /* اسم فريد للملف */
+    const ext  = file.name.split('.').pop().toLowerCase();
+    const name = `product_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+    const path = `products/${name}`;
+
+    /* ارفع على Supabase Storage في bucket اسمه "images" */
+    const { error: uploadError } = await db
+      .storage
+      .from('images')
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    /* اجيب الرابط العام */
+    const { data: urlData } = db
+      .storage
+      .from('images')
+      .getPublicUrl(path);
+
+    const publicUrl = urlData.publicUrl;
+
+    /* حط الرابط في الحقل */
+    document.getElementById('p-image-url').value = publicUrl;
+
+    /* حدّث الـ preview بالرابط الحقيقي */
+    const thumb = document.getElementById('img-preview-thumb');
+    thumb.src = publicUrl;
+
+    setImgStatus('✅ تم الرفع بنجاح', 'var(--green)');
+
+  } catch (err) {
+    console.error('Upload error:', err);
+
+    /* لو الـ bucket مش موجود، وضّح للمستخدم */
+    if (err.message && err.message.includes('Bucket not found')) {
+      setImgStatus('❌ Bucket "images" غير موجود — أنشئه من Supabase Storage', 'var(--red)');
+    } else {
+      setImgStatus('❌ فشل الرفع: ' + (err.message || 'خطأ غير معروف'), 'var(--red)');
+    }
+
+    /* ارجع للـ placeholder لو فشل */
+    clearImage();
+  } finally {
+    overlay.style.display = 'none';
+    input.value = '';
+  }
+}
+
+/* Drag & Drop على صندوق الصورة */
+(function initDragDrop() {
+  document.addEventListener('DOMContentLoaded', () => {
+    const box = document.getElementById('img-preview-box');
+    if (!box) return;
+
+    box.addEventListener('dragover', e => {
+      e.preventDefault();
+      box.style.borderColor = 'var(--gold)';
+    });
+    box.addEventListener('dragleave', () => {
+      box.style.borderColor = '';
+    });
+    box.addEventListener('drop', e => {
+      e.preventDefault();
+      box.style.borderColor = '';
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      /* نعمل fake input وندّيه للـ handler */
+      const fakeInput = { files: [file], value: '' };
+      handleImageUpload(fakeInput);
+    });
+  });
+})();
 </script>
 </body>
 </html>
