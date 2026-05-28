@@ -877,10 +877,19 @@ async function adminLogin() {
   }
 
   // تحقق من صلاحية Admin
-  const { data: profile } = await db.from('profiles')
+  const { data: profile, error: profErr } = await db.from('profiles')
     .select('is_admin, full_name').eq('id', data.user.id).single();
 
-  if (!profile || !profile.is_admin) {
+  if (profErr || !profile) {
+    await db.auth.signOut();
+    err.textContent = '⚠️ خطأ: ' + (profErr?.message || 'البروفايل غير موجود في جدول profiles');
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'دخول';
+    return;
+  }
+
+  if (!profile.is_admin) {
     await db.auth.signOut();
     err.textContent = '⛔ ليس لديك صلاحية الوصول';
     err.style.display = 'block';
@@ -1291,7 +1300,7 @@ async function loadCustomers() {
           <td style="font-size:0.8rem">${new Date(c.created_at).toLocaleDateString('ar-EG')}</td>
           <td>${ordersCount > 0 ? '▼' : ''}</td>
         </tr>
-        ${ordersCount > 0 ? `<tr id="co-${c.id}" style="display:none">${ordersHtml ? '<td colspan='9' style='padding:0'><table style='width:100%'><tbody>'+ordersHtml+'</tbody></table></td>' : ''}</tr>` : ''}`;
+        ${ordersCount > 0 ? `<tr id="co-${c.id}" style="display:none">${ordersHtml ? '<td colspan="9" style="padding:0"><table style="width:100%"><tbody>'+ordersHtml+'</tbody></table></td>' : ''}</tr>` : ''}`;
       }).join('')}
       </tbody>
     </table>`;
