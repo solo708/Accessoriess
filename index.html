@@ -3934,26 +3934,11 @@ function submitOrder() {
   updateCartUI(); persistUserData();
 
   // ② Telegram إشعار فوري لصاحب المتجر
-  (async function sendTelegram() {
-    const TG_TOKEN   = '8746967515:AAE23TKejR_7uELPySZnVbPQsiMVT9xGx8M';
-    const TG_CHAT_ID = '6956360895';
-    const itemsText  = items.map(i => `• ${i.emoji||'🛍️'} ${i.name} ×${i.qty} — ${i.price.toLocaleString('ar-EG')} ج.م`).join('\n');
-    const msg = `🛒 <b>طلب جديد — LUXE</b>\n\n`
-      + `🔢 رقم الطلب: <code>${orderNum}</code>\n`
-      + `👤 الاسم: ${fname} ${lname}\n`
-      + `📞 الهاتف: ${phone}\n`
-      + `📍 العنوان: ${city}، ${district}\n${address}\n`
-      + `\n📦 <b>المنتجات:</b>\n${itemsText}\n`
-      + `\n💰 <b>الإجمالي: ${total.toLocaleString('ar-EG')} ج.م</b>`
-      + (notes ? `\n📝 ملاحظات: ${notes}` : '');
-    try {
-      await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TG_CHAT_ID, text: msg, parse_mode: 'HTML' })
-      });
-    } catch(e) { console.warn('Telegram notification failed', e); }
-  })();
+fetch('/api/telegram', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ orderNum, fname, lname, phone, city, district, address, notes, items, total })
+}).catch(e => console.warn('Telegram notification failed', e));
 
   // ③ احفظ في Supabase وابعت إيميل في الخلفية
   (async () => {
